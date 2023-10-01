@@ -17,6 +17,10 @@ Windows / Linux:
 
     `pip install -r requirements.txt`
 
+- Apply changes of migrate
+
+    `python manage.py makemigrations`
+
 - Run Migrate
 
     `python manage.py migrate`
@@ -24,3 +28,9 @@ Windows / Linux:
 - Run Server
 
     `python manage.py runserver`
+
+- Create user for django admin panel 
+
+    `python manage.py createsuperuser`
+
+- Run AI model (update soon)
