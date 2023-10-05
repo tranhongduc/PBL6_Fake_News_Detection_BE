@@ -30,21 +30,29 @@ def login(request):
                     request.session['account_status'] = account.status
                     request.session['account_created_at'] = account_created_at
                     request.session['account_updated_at'] = account_updated_at
+                    account_session_data = {
+                        'id': request.session['account_id'],
+                        'role': request.session['account_role'],
+                        'email': request.session['account_email'],
+                        'status': request.session['account_status'],
+                        'created_at': request.session['account_created_at'],
+                        'update_at': request.session['account_updated_at'],
+                    }
                 # Điều hướng tới trang tương ứng
                     if account.role == 'user':
                         # Điều hướng sang trang account
                         return JsonResponse(
                             {
+                                'uesr': account_session_data ,
                                 'success': True,
-                                'redirect_url': '/ /'
                             }
                         )
                     else:
                         # Điều hướng sang trang admin
                         return JsonResponse(
                             {
+                                'user': account_session_data ,
                                 'success': True,
-                                'redirect_url': '/ /'
                             }
                         )
                 else:
