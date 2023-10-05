@@ -4,7 +4,10 @@ from .models import Account
 from django.http import JsonResponse, HttpRequest
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.cache import cache
+from rest_framework import permissions, status
+from rest_framework.decorators import api_view
 
+@api_view(['GET', 'POST'])
 def login(request):
     if request.method == 'POST':
         # Nhận đầu vào từ người dùng
@@ -76,6 +79,7 @@ def login(request):
         }
     )
 
+@api_view(['GET', 'POST'])
 def register(request):
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
@@ -104,6 +108,12 @@ def register(request):
             )  # Điều hướng đến trang đăng nhập (cần thiết phải có URL 'login')
         else:
             print(form.errors)
+            return JsonResponse(
+                {
+                'error': form.errors,
+                # 'redirect_url': '/login/'
+                }
+            ) 
 
     else:
         form = RegistrationForm()
@@ -115,6 +125,7 @@ def register(request):
         }
     )
 
+@api_view(['GET'])
 def session_info(request):
     # Kiểm tra xem người dùng đã đăng nhập và có phiên làm việc không
     if 'account_id' in request.session and 'account_role' in request.session and 'account_email' in request.session and 'account_status' in request.session and 'account_created_at' in request.session and 'account_updated_at' in request.session:
