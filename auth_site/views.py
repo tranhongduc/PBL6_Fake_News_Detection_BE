@@ -1,5 +1,6 @@
 from .forms import RegistrationForm
 from .models import Account
+from news.models import News, Comments
 from django.http import JsonResponse
 from django.contrib.auth.hashers import make_password
 from .serializer import AccountSerializer
@@ -16,6 +17,8 @@ import jwt
 import uuid
 from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
+from django.core.exceptions import ObjectDoesNotExist
+from django.views.decorators.csrf import csrf_exempt
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     # Sử dụng trường 'email' thay vì 'username'
@@ -377,3 +380,66 @@ def refresh_token(request):
                         },
                         status=status.HTTP_200_OK
                     ) 
+def admin_user_list(request):
+    try:
+        admin_users = Account.objects.filter(role='admin')
+        admin_user_data = [
+            {
+                'username': user.username, 
+                'email': user.email,
+                'status' : user.status
+            } for user in admin_users]
+        data = {'admin_users': admin_user_data}
+        return JsonResponse(data,status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        # Handle the case where no admin users are found
+        error_message = 'No admin users found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        # Handle other unexpected errors
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+def user_list(request):
+    try:
+        users = Account.objects.filter(role='user')
+        user_data = [
+            {
+                'username': user.username, 
+                'email': user.email,
+                'status' : user.status
+            } for user in users]
+        data = {'users': user_data}
+        return JsonResponse(data,status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        # Handle the case where no user users are found
+        error_message = 'No user users found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        # Handle other unexpected errors
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+def user_detail(request, user_id):
+    try:
+        account = Account.objects.get(id=user_id)
+        
+        # Đếm số lượng tin tức và bình luận của người dùng
+        news_count = News.objects.filter(account=account).count()
+        comments_count = Comments.objects.filter(account=account).count()
+        
+        # Convert the account object and counts to a dictionary
+        user_data = {
+            'id': account.id,
+            'username': account.username,
+            'email': account.email,
+            'role': account.role,
+            'avatar' : account.avatar,
+            'news_count': news_count,
+            'comments_count': comments_count,
+        }
+        return JsonResponse(user_data,status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        error_message = 'Account not found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)  

@@ -4,3 +4,4 @@ django-urls
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
+factory_boy
