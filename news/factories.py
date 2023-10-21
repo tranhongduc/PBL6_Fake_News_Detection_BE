@@ -19,8 +19,9 @@ class NewsFactory(Factory):
     text = Faker('text')
     image = Faker('file_name', extension='jpg')
     label = LazyAttribute(lambda x: random.choice(['fake'] * 3 + ['real'] * 7))
-    account = SubFactory(AccountFactory, role='user')
-    category = SubFactory(CategoriesFactory)
+    account = Faker('random_element', elements=Account.objects.filter(role='user'))
+    category = Faker('random_element', elements=Categories.objects.all())
+
 class CommentsFactory(Factory):    
     class Meta:
         model = Comments
@@ -28,8 +29,7 @@ class CommentsFactory(Factory):
     text = Faker('text')
     account = Faker('random_element', elements=Account.objects.filter(role='user'))
     news = Faker('random_element', elements=News.objects.all())
-
-# Tạo danh sách News ngẫu nhiên
+# # Tạo danh sách News ngẫu nhiên
 num_objects = 100
 news = [NewsFactory() for _ in range(num_objects)]
 # Tạo danh sách Comments ngẫu nhiên

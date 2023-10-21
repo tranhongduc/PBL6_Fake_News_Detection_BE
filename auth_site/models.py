@@ -40,4 +40,4 @@ class Account(AbstractBaseUser, PermissionsMixin):
 
     # Loại bỏ trường 'is_superuser'
     is_superuser = None
-    
+ 

@@ -1,6 +1,7 @@
 import random
 from factory import Factory, SubFactory, Faker, LazyAttribute
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 
 class AccountFactory(Factory):
     class Meta:
@@ -8,7 +9,7 @@ class AccountFactory(Factory):
     
     username = Faker('user_name')
     email = Faker('email')  # Tạo email hợp lệ
-    password = '12345678'  # Sử dụng `Faker` để tạo mật khẩu mô phỏng
+    password = LazyAttribute(lambda x: make_password('12345678')) # Sử dụng `Faker` để tạo mật khẩu mô phỏng
     role = LazyAttribute(lambda x: random.choice(['admin'] * 3 + ['user'] * 7))
     status = LazyAttribute(lambda x: random.choice(['unactive'] * 3 + ['active'] * 7))
     avatar = Faker('image_url')
