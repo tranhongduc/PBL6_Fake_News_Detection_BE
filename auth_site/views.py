@@ -385,6 +385,7 @@ def admin_user_list(request):
         admin_users = Account.objects.filter(role='admin')
         admin_user_data = [
             {
+                'id':user.id,
                 'username': user.username, 
                 'email': user.email,
                 'status' : user.status
@@ -404,6 +405,7 @@ def user_list(request):
         users = Account.objects.filter(role='user')
         user_data = [
             {
+                'id': user.id,
                 'username': user.username, 
                 'email': user.email,
                 'status' : user.status
