@@ -48,14 +48,14 @@ Windows / Linux:
 >>> accounts = [AccountFactory.create() for _ in range(num_objects)]
 >>> Account.objects.bulk_create(accounts)
 
-=> create account
+=> create categories
 >>> from news.models import Categories
 >>> from news.factories import CategoriesFactory
 >>> num_objects = 10
 >>> categories = [CategoriesFactory.create() for _ in range(num_objects)]
 >>> Categories.objects.bulk_create(categories)
 
-=> create account
+=> create news
  from news.models import News
  from news.factories import NewsFactory
  from auth_site.models import Account
@@ -63,7 +63,7 @@ Windows / Linux:
  news = [NewsFactory.create() for _ in range(num_news)]
  News.objects.bulk_create(news)
 
- => create account
+ => create comments
  from news.models import Comments
  from news.factories import CommentsFactory
  num_comments = 100
