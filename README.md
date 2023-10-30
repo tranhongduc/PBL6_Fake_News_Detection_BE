@@ -1,12 +1,16 @@
 # PBL6
 
-Command for Linux only (update necessary package)
+Command for Linux only (update and install necessary package)
 
 `sudo apt-get update`
 
-`sudo apt-get install`
+`sudo apt-get install libmysqlclient-dev pkg-config`
 
-`libmysqlclient-dev pkg-config`
+Command for MacOS only (update and install necessary package)
+
+`brew update`
+
+`brew install mariadb`
 
 Windows / Linux:
 
@@ -34,6 +38,7 @@ Windows / Linux:
     `python manage.py createsuperuser`
 
 - Run AI model (update soon)
+
 - Run create seeder database
  'python3 manage.py shell'
 => create account
