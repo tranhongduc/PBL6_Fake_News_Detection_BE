@@ -381,6 +381,7 @@ def refresh_token(request):
                         },
                         status=status.HTTP_200_OK
                     ) 
+                
 def admin_user_list(request):
     try:
         admin_users = Account.objects.filter(role='admin')
@@ -401,6 +402,7 @@ def admin_user_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
 def user_list(request):
     try:
         users = Account.objects.filter(role='user')
@@ -421,6 +423,7 @@ def user_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
 def user_detail(request, user_id):
     try:
         account = Account.objects.get(id=user_id)
