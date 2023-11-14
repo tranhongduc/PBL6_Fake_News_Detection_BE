@@ -56,16 +56,15 @@ Windows / Linux:
 >>> Categories.objects.bulk_create(categories)
 
 => create news
- from news.models import News
- from news.factories import NewsFactory
- from auth_site.models import Account
- num_news = 100
- news = [NewsFactory.create() for _ in range(num_news)]
- News.objects.bulk_create(news)
+>>> from news.models import News
+>>> from news.factories import NewsFactory
+>>> num_news = 100
+>>> news = [NewsFactory.create() for _ in range(num_news)]
+>>> News.objects.bulk_create(news)
 
- => create comments
- from news.models import Comments
- from news.factories import CommentsFactory
- num_comments = 100
- comments = [CommentsFactory.create() for _ in range(num_comments)]
- Comments.objects.bulk_create(comments)
+=> create comments
+>>> from news.models import Comments
+>>> from news.factories import CommentsFactory
+>>> num_comments = 100
+>>> comments = [CommentsFactory.create() for _ in range(num_comments)]
+>>> Comments.objects.bulk_create(comments)

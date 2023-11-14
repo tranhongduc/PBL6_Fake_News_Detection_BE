@@ -1,23 +1,28 @@
 from .models import Account
 from news.models import News, Comments, Categories
 from django.http import JsonResponse
-from django.contrib.auth.hashers import make_password
 from rest_framework import status
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.tokens import RefreshToken, BlacklistedToken, OutstandingToken
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import authenticate
-from django.utils import timezone
-import jwt
-import uuid
-from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
+from rest_framework.decorators import api_view
+from PBL6_Fake_News_Detection_BE.middleware import AdminAuthorizationMiddleware, UserAuthorizationMiddleware
 from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import authenticate
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from .serializer import CategoriesSerializer, NewsSerializer, CommentsSerializer
+from rest_framework.pagination import PageNumberPagination
 
+class CustomPagination(PageNumberPagination):
+    page_size = 10  # Đặt giá trị mặc định cho page_size
+    page_size_query_param = 'page_size'
+    max_page_size = 100  # Đặt giá trị mặc định cho max_page_size
+
+# ---------------------------------     ADMIN  ROUTE     ---------------------------------
+
+@AdminAuthorizationMiddleware
+@api_view(['GET'])
 def categories_list(request):
     try:
         categories = Categories.objects.all()
@@ -43,7 +48,9 @@ def categories_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-    
+        
+# @AdminAuthorizationMiddleware
+@api_view(['GET'])
 def news_list(request):
     try:
         news = News.objects.all()
@@ -77,6 +84,9 @@ def news_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+
+# @AdminAuthorizationMiddleware   
+@api_view(['GET'])
 def news_list_by_category(request,category_id):
     try:
         news = News.objects.filter(category=category_id)
@@ -108,6 +118,9 @@ def news_list_by_category(request,category_id):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+
+# @AdminAuthorizationMiddleware
+@api_view(['GET'])
 def news_list_by_author(request,author_id):
     try:
         news = News.objects.filter(account=author_id)
@@ -139,6 +152,9 @@ def news_list_by_author(request,author_id):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+
+# @AdminAuthorizationMiddleware 
+@api_view(['GET'])
 def coments_list_by_user(request,user_id):
     try:
         comments = Comments.objects.filter(account=user_id)
@@ -166,6 +182,9 @@ def coments_list_by_user(request,user_id):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+
+# @AdminAuthorizationMiddleware
+@api_view(['GET'])
 def news_detail(request, id):
     try:
         news = News.objects.get(id=id)
@@ -208,4 +227,78 @@ def news_detail(request, id):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)  
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
+# ---------------------------------     USER  ROUTE     ---------------------------------
+
+@UserAuthorizationMiddleware
+@api_view(['GET'])
+def get_all_categories(request):
+    categories = Categories.objects.all()
+    serializer = CategoriesSerializer(categories, many=True)
+    return JsonResponse(
+        data={
+            'success': True,
+            'categories': serializer.data
+        },
+        status=status.HTTP_200_OK
+    )
+
+@UserAuthorizationMiddleware
+@api_view(['GET'])
+def get_all_news(request):
+    news = News.objects.all()
+    serializer = NewsSerializer(news, many=True)
+    return JsonResponse(
+        data={
+            'success': True,
+            'news': serializer.data
+        },
+        status=status.HTTP_200_OK
+    )
+
+@UserAuthorizationMiddleware
+@api_view(['GET'])
+def get_all_comments(request):
+    comments = Comments.objects.all()
+    serializer = CommentsSerializer(comments, many=True)
+    return JsonResponse(
+        data={
+            'success': True,
+            'coments': serializer.data
+        },
+        status=status.HTTP_200_OK
+    )
+
+@UserAuthorizationMiddleware
+@api_view(['GET'])  
+def total_news(request):
+    news_count = News.objects.count()
+    return JsonResponse(
+        data={
+            'success': True,
+            'news_count': news_count
+        },
+        status=status.HTTP_200_OK
+    )
+
+@UserAuthorizationMiddleware
+@api_view(['GET'])
+def paging(request):
+    page_number = int(request.query_params.get('page_number', 1))
+    page_size = int(request.query_params.get('page_size', 10))
+
+    start = (page_number - 1) * page_size
+    end = start + page_size
+
+    queryset = News.objects.all()[start:end]
+    serialized_data = NewsSerializer(queryset, many=True)
+
+    return JsonResponse(
+        data={
+            'list_news': serialized_data.data,
+            'page_number': page_number,
+            'page_size': page_size
+        },
+        status=status.HTTP_200_OK
+    )
