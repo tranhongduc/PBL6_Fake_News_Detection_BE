@@ -8,4 +8,5 @@ urlpatterns = [
     path('news_list_by_author/<int:author_id>/', views.news_list_by_author, name='news_list_by_author'),
     path('coments_list_by_user/<int:user_id>/', views.coments_list_by_user, name='coments_list_by_user'),
     path('detail-news/<int:id>/', views.news_detail, name='news_detail'),
+    path('test',views.test,name = 'test'),
 ]

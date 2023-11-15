@@ -19,6 +19,7 @@ from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     # Sử dụng trường 'email' thay vì 'username'
@@ -380,18 +381,30 @@ def refresh_token(request):
                         },
                         status=status.HTTP_200_OK
                     ) 
-def admin_user_list(request):
+def admin_account_list(request):
     try:
-        admin_users = Account.objects.filter(role='admin')
-        admin_user_data = [
+        admins = Account.objects.filter(role='admin')
+        page_number = request.GET.get("page_number",1)
+        paginator = Paginator(admins, 25)
+        try:
+            admin_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            admin_list = paginator.page(1)
+        except EmptyPage:
+            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+        response_data = {
+            'current_page' : admin_list.number,
+            'total_pages' : paginator.num_pages,
+            'admins' :[
             {
-                'account_id':user.id,
-                'username': user.username, 
-                'email': user.email,
-                'status' : user.status
-            } for user in admin_users]
-        data = {'admin_users': admin_user_data}
-        return JsonResponse(data,status=status.HTTP_200_OK)
+                'account_id': admin.id,
+                'adminname': admin.username, 
+                'email': admin.email,
+                'status' : admin.status
+            } 
+            for admin in admin_list]
+        }
+        return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
         # Handle the case where no admin users are found
         error_message = 'No admin users found.'
@@ -400,18 +413,30 @@ def admin_user_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-def user_list(request):
+def user_account_list(request):
     try:
         users = Account.objects.filter(role='user')
-        user_data = [
+        page_number = request.GET.get("page_number",1)
+        paginator = Paginator(users, 25)
+        try:
+            user_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            user_list = paginator.page(1)
+        except EmptyPage:
+            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+        response_data = {
+            'current_page' : user_list.number,
+            'total_pages' : paginator.num_pages,
+            'users' :[
             {
                 'account_id': user.id,
                 'username': user.username, 
                 'email': user.email,
                 'status' : user.status
-            } for user in users]
-        data = {'users': user_data}
-        return JsonResponse(data,status=status.HTTP_200_OK)
+            } 
+            for user in user_list]
+        }
+        return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
         # Handle the case where no user users are found
         error_message = 'No user users found.'
@@ -420,7 +445,7 @@ def user_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-def user_detail(request, user_id):
+def user_detail(user_id):
     try:
         account = Account.objects.get(id=user_id)
         

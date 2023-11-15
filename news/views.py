@@ -17,11 +17,12 @@ from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
-def categories_list(request):
+def categories_list():
     try:
         categories = Categories.objects.all()
-
+    
         # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
         category_info = []
 
@@ -33,7 +34,6 @@ def categories_list(request):
                 'name': category.name,
                 'news_count': news_count
             })
-
         return JsonResponse({'categories': category_info},status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
         # Handle the case where no admin users are found
@@ -46,29 +46,39 @@ def categories_list(request):
     
 def news_list(request):
     try:
+        # Get all news items
         news = News.objects.all()
-
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
-        news_info = []
-
+        # Check for 'page_number' parameter in the request, default to 1 if not present
+        page_number = request.GET.get("page_number",1)
+        # Create a Pa ginator object
+        paginator = Paginator(news, 25)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
-        for item in news:
-            news_count = Comments.objects.filter(news=item).count()
-            # author = Account.objects.filter(id=item.account).first().username
-            # category = Categories.objects.filter(id=item.category).first().name
-            author = item.account.username
-            category = item.category.name
-            news_info.append({
-                'id': item.id,
-                'title': item.title,
-                'author' : author,
-                'category' : category,
-                'label': item.label,
-                'news_count': news_count,
-                'created_at' : item.created_at
-            })
+        response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news': [
+                {
+                    'id': item.id,
+                    'title': item.title,
+                    'text': item.text,
+                    'author': item.account.username,
+                    'category': item.category.name,
+                    'label': item.label,
+                    'comments_count': Comments.objects.filter(news=item).count(),
+                    'created_at': item.created_at
+                }
+                for item in news_list
+            ]
+        }
 
-        return JsonResponse({'news': news_info},status=status.HTTP_200_OK)
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
         # Handle the case where no admin users are found
         error_message = 'No item users found.'
@@ -209,3 +219,7 @@ def news_detail(request, id):
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)  
+def test(request):
+    news = News.objects.all()
+    cate = news.category
+    return  JsonResponse(cate,status=status.HTTP_200_OK)

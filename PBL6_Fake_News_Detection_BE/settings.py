@@ -164,7 +164,16 @@ DATABASES = {
         'PORT': '3306',
     }
 }
-
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'PBL6',
+#         'USER': 'root',
+#         'PASSWORD': '',
+#         'HOST': '127.0.0.1',
+#         'PORT': '3306',
+#     }
+# }
 AUTHENTICATION_BACKENDS = [
     # Backend mặc định
     # 'django.contrib.auth.backends.ModelBackend',  

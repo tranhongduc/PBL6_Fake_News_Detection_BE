@@ -1,6 +1,6 @@
 version: "3.7"
-services: 
-  db:
+services:
+  mysql:
     image: mysql:8.0
     container_name: pbl6_fake_news
     restart: unless-stopped
@@ -14,11 +14,10 @@ services:
       SERVICE_TAGS: dev 
       SERVICE_NAME: mysql
     volumes:
-      - dbdata:/var/lib/mysql
-    networks:
-      - dockerproject
+      - pbl6_fake_news:/var/lib/mysql
 networks:
   dockerproject:
     driver: bridge
 volumes:
-  dbdata:
+  pbl6_fake_news:
+    driver: local
