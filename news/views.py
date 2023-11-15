@@ -13,6 +13,7 @@ from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from .serializer import CategoriesSerializer, NewsSerializer, CommentsSerializer
 from rest_framework.pagination import PageNumberPagination
+from django.shortcuts import get_object_or_404
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
@@ -21,7 +22,6 @@ class CustomPagination(PageNumberPagination):
 
 # ---------------------------------     ADMIN  ROUTE     ---------------------------------
 
-@AdminAuthorizationMiddleware
 @api_view(['GET'])
 def categories_list(request):
     try:
@@ -49,7 +49,6 @@ def categories_list(request):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
         
-# @AdminAuthorizationMiddleware
 @api_view(['GET'])
 def news_list(request):
     try:
@@ -85,7 +84,6 @@ def news_list(request):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
-# @AdminAuthorizationMiddleware   
 @api_view(['GET'])
 def news_list_by_category(request,category_id):
     try:
@@ -119,7 +117,6 @@ def news_list_by_category(request,category_id):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
-# @AdminAuthorizationMiddleware
 @api_view(['GET'])
 def news_list_by_author(request,author_id):
     try:
@@ -153,7 +150,6 @@ def news_list_by_author(request,author_id):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
-# @AdminAuthorizationMiddleware 
 @api_view(['GET'])
 def coments_list_by_user(request,user_id):
     try:
@@ -183,7 +179,6 @@ def coments_list_by_user(request,user_id):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
-# @AdminAuthorizationMiddleware
 @api_view(['GET'])
 def news_detail(request, id):
     try:
@@ -231,7 +226,6 @@ def news_detail(request, id):
     
 # ---------------------------------     USER  ROUTE     ---------------------------------
 
-@UserAuthorizationMiddleware
 @api_view(['GET'])
 def get_all_categories(request):
     categories = Categories.objects.all()
@@ -244,7 +238,6 @@ def get_all_categories(request):
         status=status.HTTP_200_OK
     )
 
-@UserAuthorizationMiddleware
 @api_view(['GET'])
 def get_all_news(request):
     news = News.objects.all()
@@ -257,7 +250,6 @@ def get_all_news(request):
         status=status.HTTP_200_OK
     )
 
-@UserAuthorizationMiddleware
 @api_view(['GET'])
 def get_all_comments(request):
     comments = Comments.objects.all()
@@ -265,12 +257,24 @@ def get_all_comments(request):
     return JsonResponse(
         data={
             'success': True,
-            'coments': serializer.data
+            'comments': serializer.data
         },
         status=status.HTTP_200_OK
     )
 
-@UserAuthorizationMiddleware
+@api_view(['GET'])  
+def get_news_detail(request, **kwargs):
+    news_id = kwargs.get('id')
+    news_detail = get_object_or_404(News, id=news_id)
+    serializer = NewsSerializer(news_detail)
+    return JsonResponse(
+        data={
+            'success': True,
+            'news_detail': serializer.data
+        },
+        status=status.HTTP_200_OK
+    )
+
 @api_view(['GET'])  
 def total_news(request):
     news_count = News.objects.count()
@@ -282,7 +286,6 @@ def total_news(request):
         status=status.HTTP_200_OK
     )
 
-@UserAuthorizationMiddleware
 @api_view(['GET'])
 def paging(request):
     page_number = int(request.query_params.get('page_number', 1))

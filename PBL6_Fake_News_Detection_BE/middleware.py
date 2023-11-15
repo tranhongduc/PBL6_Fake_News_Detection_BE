@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import jwt
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -10,8 +10,15 @@ from rest_framework.renderers import JSONRenderer
 import json
 from jwt.exceptions import ExpiredSignatureError, InvalidSignatureError
 
-class AdminAuthorizationMiddleware(MiddlewareMixin):
-    def process_request(self, request):
+class AdminAuthorizationMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request, *args, **kwargs):
+        # Các logic xử lý middleware ở đây
+        return self.get_response(request, *args, **kwargs)
+    
+    def process_request(self, request, *args, **kwargs):
         # Kiểm tra xem request có chứa access_token không
         if 'HTTP_AUTHORIZATION' in request.META:
             authorization_header = request.META['HTTP_AUTHORIZATION']
@@ -43,7 +50,7 @@ class AdminAuthorizationMiddleware(MiddlewareMixin):
 
                 if user['role'] == 'admin':
                     # Người dùng có quyền admin, cho phép request tiếp tục xử lý
-                    return None
+                    return self.get_response(request, *args, **kwargs)
                 else:
                     # Người dùng không có quyền admin, trả về lỗi
                     return JsonResponse(
@@ -86,10 +93,22 @@ class AdminAuthorizationMiddleware(MiddlewareMixin):
                     },
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-        return None
+        return JsonResponse(
+            data={
+                'success': False,
+                'error_message': 'Chưa cung cấp access_token'
+            },
+            status=status.HTTP_401_UNAUTHORIZED
+        )
     
-class UserAuthorizationMiddleware(MiddlewareMixin):
-    def process_request(self, request):
+class UserAuthorizationMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request, *args, **kwargs):
+        return self.process_request(request, *args, **kwargs)
+    
+    def process_request(self, request, *args, **kwargs):
         # Kiểm tra xem request có chứa access_token không
         if 'HTTP_AUTHORIZATION' in request.META:
             authorization_header = request.META['HTTP_AUTHORIZATION']
@@ -118,7 +137,7 @@ class UserAuthorizationMiddleware(MiddlewareMixin):
 
                 if user['role'] == 'user':
                     # Người dùng có quyền user, cho phép request tiếp tục xử lý
-                    return None
+                    return self.get_response(request, *args, **kwargs)
                 else:
                     # Người dùng không có quyền user, trả về lỗi
                     return JsonResponse(
@@ -155,4 +174,10 @@ class UserAuthorizationMiddleware(MiddlewareMixin):
                     },
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-        return None
+        return JsonResponse(
+            data={
+                'success': False,
+                'error_message': 'Chưa cung cấp access_token'
+            },
+            status=status.HTTP_401_UNAUTHORIZED
+        )
