@@ -11,7 +11,7 @@ class News(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
     text = models.TextField()
-    image = models.CharField(max_length=50, blank=True, null=True)
+    image = models.CharField(max_length=255, blank=True, null=True)
     label = models.CharField(max_length=10)
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     category = models.ForeignKey(Categories, on_delete=models.CASCADE)

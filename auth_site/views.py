@@ -173,7 +173,7 @@ def login(request):
                 refresh = RefreshToken.for_user(user)
             
             # Điều hướng tới trang tương ứng
-            if user.role == 'user':             
+            if user.role == 'user':
                 if is_refresh_token_expired == None: # Không có refresh_token đính kèm theo
                     return JsonResponse(
                         data={
@@ -227,6 +227,7 @@ def login(request):
                             status=status.HTTP_401_UNAUTHORIZED
                         )
             elif user.role == 'admin':
+                print('Con cac')             
                 if is_refresh_token_expired == None: # Không có refresh_token đính kèm theo
                     return JsonResponse(
                         data={
@@ -244,8 +245,8 @@ def login(request):
                     return JsonResponse(
                         data={
                             'user': serializer.data,
-                            'access_token': str(refresh.access_token),
-                            'refresh_token': str(refresh),
+                            'access_token': str(new_access_token),
+                            'refresh_token': str(refresh_token),
                             'is_new_refresh_token': False,
                             'refresh_token_requested_status': 'Còn hiệu lực',
                             'message': 'Đăng nhập thành công',
