@@ -14,6 +14,11 @@ urlpatterns = [
     path('news/<int:id>/', news.get_news_detail, name='get_news_detail'),
     path('list_user_you_follow/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
     path('list_user_following_you/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
+    path('list_news_user/<int:number/<int:page>', news.news_list_user, name='news_list_user'),
     path('news/store/', news.store_news, name='store_news'),
     path('news/update/<int:news_id>/', news.update_news, name='update_news'),
+    path('comment/store/', news.store_comment, name='store_comment'),
+    path('comment/update/<int:comment_id>/', news.update_comment, name='update_comment'),
+
+    
 ]                       

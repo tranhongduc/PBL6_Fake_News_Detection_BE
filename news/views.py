@@ -1,5 +1,5 @@
 from .models import Account
-from news.models import News, Comments, Categories
+from news.models import News, Comments, Categories, Interacts
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -11,7 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from .serializer import CategoriesSerializer, NewsSerializer, CommentsSerializer
+from .serializer import CategoriesSerializer, NewsSerializer, NewsSerializerUpdate, CommentsSerializer, CommentsSerializerUpdate
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
@@ -24,25 +24,12 @@ class CustomPagination(PageNumberPagination):
 # ---------------------------------     ADMIN  ROUTE     ---------------------------------
         
 @api_view(['GET'])
-def news_list_admin(request, page):
+def news_list_admin(request):
     try:
         # Get all news items
         news = News.objects.all()
         # Check for 'page_number' parameter in the request, default to 1 if not present
-        page_number = request.GET.get("page_number",page)
-        # Create a Pa ginator object
-        paginator = Paginator(news, 25)
-        try:
-            news_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            news_list = paginator.page(1)
-        except EmptyPage:
-            # Handle the case where the page is empty
-            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
-        # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
         response_data = {
-            'current_page': news_list.number,
-            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -53,7 +40,7 @@ def news_list_admin(request, page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news_list
+                for item in news
             ]
         }
 
@@ -68,23 +55,10 @@ def news_list_admin(request, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
 @api_view(['GET'])
-def news_list_by_category(request, category_id, page):
+def news_list_by_category_admin(request, category_id):
     try:
         news = News.objects.filter(category=category_id)
-        page_number = request.GET.get("page_number",page)
-        # Create a Pa ginator object
-        paginator = Paginator(news, 25)
-        try:
-            news_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            news_list = paginator.page(1)
-        except EmptyPage:
-            # Handle the case where the page is empty
-            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
         response_data = {
-            'current_page': news_list.number,
-            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -94,7 +68,7 @@ def news_list_by_category(request, category_id, page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news_list
+                for item in news
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -108,24 +82,10 @@ def news_list_by_category(request, category_id, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
 @api_view(['GET'])
-def news_list_by_author(request, author_id, page):
+def news_list_by_author_admin(request, author_id):
     try:
         news = News.objects.filter(account=author_id)
-
-        page_number = request.GET.get("page_number",page)
-        # Create a Pa ginator object
-        paginator = Paginator(news, 25)
-        try:
-            news_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            news_list = paginator.page(1)
-        except EmptyPage:
-            # Handle the case where the page is empty
-            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
         response_data = {
-            'current_page': news_list.number,
-            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -135,7 +95,7 @@ def news_list_by_author(request, author_id, page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news_list
+                for item in news
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -149,24 +109,10 @@ def news_list_by_author(request, author_id, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
 @api_view(['GET'])
-def comments_list_by_user(request, user_id, page):
+def comments_list_by_user(request, user_id):
     try:
         comments = Comments.objects.filter(account=user_id)
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
-        page_number = request.GET.get("page_number",page)
-        # Create a Pa ginator object
-        paginator = Paginator(comments, 25)
-        try:
-            comments_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            comments_list = paginator.page(1)
-        except EmptyPage:
-            # Handle the case where the page is empty
-            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
         response_data = {
-            'current_page': comments_list.number,
-            'total_pages': paginator.num_pages,
             'comments': [
                 {
                 'id': item.id,
@@ -176,7 +122,7 @@ def comments_list_by_user(request, user_id, page):
                 'news' : item.news.title,
                 'author' : item.news.account.username
                 }
-                for item in comments_list
+                for item in comments
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -185,6 +131,8 @@ def comments_list_by_user(request, user_id, page):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
  # ---------------------------------     ALL    ---------------------------------   
+
+#-----Category------
 @api_view(['GET'])
 def categories_list(request):
     try:
@@ -210,11 +158,13 @@ def categories_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-    
+#--------News----------   
 @api_view(['GET'])
 def news_detail(request, news_id):
     try:
         news = News.objects.get(id = news_id)
+        total_like = Interacts.objects.filter(label = 'news',target_type = 'like',target_id = news_id).count()
+        total_save = Interacts.objects.filter(label = 'news',target_type = 'save',target_id = news_id).count()
         news_data = {
             'id' : news.id,
             'title' : news.title,
@@ -224,6 +174,8 @@ def news_detail(request, news_id):
             'category' : news.category.name,
             'comments_count' : Comments.objects.filter(news = news).count(),
             'created_at' : news.created_at,
+            'total_like' : total_like,
+            'total_save' : total_save,
             'author_id' : news.account_id,
             'category_id' : news.category_id
         }
@@ -236,6 +188,21 @@ def news_detail(request, news_id):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
     
+@api_view(['DELETE'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_news(request, news_id):
+    try:
+        news = News.objects.get(id=news_id)
+    except News.DoesNotExist:
+        return JsonResponse({"error": "News not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user.role == 'admin' or request.user.id == news.account.id:
+        news.delete()
+        return JsonResponse({"message": "News deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    else:
+        return JsonResponse({"error": "You don't have permission to delete this news"}, status=status.HTTP_403_FORBIDDEN)
+#------Comments--------   
 @api_view(['GET'])
 def comments_list_by_news(request, news_id, page):
     try:
@@ -268,31 +235,58 @@ def comments_list_by_news(request, news_id, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
+@api_view(['DELETE'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = Comments.objects.get(id=comment_id)
+    except comment.DoesNotExist:
+        return JsonResponse({"error": "comment not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    if request.user.role == 'admin' or request.user.id == comment.account.id:
+        comment.delete()
+        return JsonResponse({"message": "comment deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    else:
+        return JsonResponse({"error": "You don't have permission to delete this comment"}, status=status.HTTP_403_FORBIDDEN)
 # ---------------------------------     USER  ROUTE     ---------------------------------
+#-------News------
 @api_view(['GET'])
-def news_list_user(request):
+def news_list_user(request,number,page):
     try:
         news = News.objects.filter(label = 'read')
 
-        # Tạo danh sách để lưu trữ thông tin của từng danh mục và số lượng tin tức
-        news_info = []
-
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
-        for item in news:
-            comments_count = Comments.objects.filter(news=item).count()
-            author = item.account.username
-            category = item.category.name
-            news_info.append({
-                'id': item.id,
-                'title': item.title,
-                'author' : author,
-                'category' : category,
-                'label': item.label,
-                'comments_count': comments_count,
-                'created_at' : item.created_at
-            })
-        return JsonResponse({'news': news_info},status=status.HTTP_200_OK)
+        response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news': [
+                {
+                    'id': item.id,
+                    'title': item.title,
+                    'text' : item.text,
+                    'author': item.account.username,
+                    'category': item.category.name,
+                    'label': item.label,
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'comments_count': Comments.objects.filter(news=item).count(),
+                    'created_at': item.created_at
+                }
+                for item in news_list
+            ]
+        }
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
         # Handle the case where no admin users are found
         error_message = 'No item users found.'
@@ -383,15 +377,23 @@ def paging(request):
     )
 #-------News-------
 @api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def store_news(request):
-    serializer = NewsSerializer(data=request.data)
+    data_copy = request.data.copy()
+    data_copy['account'] = request.user.id
+
+    serializer = NewsSerializer(data=data_copy)
 
     if serializer.is_valid():
         serializer.save()
-        return JsonResponse(serializer.data, status=status.HTTP_201_CREATED)
+        return JsonResponse({"message": "News created successfully",
+                             "data": serializer.data}, status=status.HTTP_201_CREATED)
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def update_news(request, news_id):
     try:
         news = News.objects.get(id=news_id)
@@ -399,22 +401,54 @@ def update_news(request, news_id):
         return JsonResponse({"error": "News not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Kiểm tra xem người đăng nhập có phải là người tạo tin tức hay không
-    if request.user != news.account.id:
-        return JsonResponse({"error": "You don't have permission to update this news"}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.id != news.account.id:
+        return JsonResponse({"error": "You don't have permission to update this news",}, status=status.HTTP_403_FORBIDDEN)
 
-    serializer = NewsSerializer(news, data=request.data)
+    serializer = NewsSerializerUpdate(news, data=request.data)
+
+    if serializer.is_valid():
+        updated_news_serializer = NewsSerializer(news)
+        serializer.save()
+        return JsonResponse({"message": "News updated successfully",
+                             "data" : updated_news_serializer.data,},  status=status.HTTP_200_OK)
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+#---Comments-----
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def store_comment(request):
+    data_copy = request.data.copy()
+    data_copy['account'] = request.user.id
+
+    serializer = CommentsSerializer(data=data_copy)
 
     if serializer.is_valid():
         serializer.save()
-        return JsonResponse(serializer.data, status=status.HTTP_200_OK)
+        return JsonResponse({"message": "Comments created successfully",
+                             "data": serializer.data}, status=status.HTTP_201_CREATED)
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['DELETE'])
-def delete_news(request, news_id):
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def update_comment(request, comment_id):
     try:
-        news = News.objects.get(id=news_id)
-    except News.DoesNotExist:
-        return JsonResponse({"error": "News not found"}, status=status.HTTP_404_NOT_FOUND)
+        comment = Comments.objects.get(id=comment_id)
+    except comment.DoesNotExist:
+        return JsonResponse({"error": "comment not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    news.delete()
-    return JsonResponse({"message": "News deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    # Kiểm tra xem người đăng nhập có phải là người tạo tin tức hay không
+    if request.user.id != comment.account.id:
+        return JsonResponse({"error": "You don't have permission to update this comment",}, status=status.HTTP_403_FORBIDDEN)
+
+    serializer = CommentsSerializerUpdate(comment, data=request.data)
+
+    if serializer.is_valid():
+        updated_comment_serializer = NewsSerializer(comment)
+        serializer.save()
+        return JsonResponse({"message": "comment updated successfully",
+                             "data" : updated_comment_serializer.data,},  status=status.HTTP_200_OK)
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

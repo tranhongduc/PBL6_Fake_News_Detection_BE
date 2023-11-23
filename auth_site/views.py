@@ -182,7 +182,7 @@ def login(request):
                             'refresh_token': str(refresh),
                             'is_new_refresh_token': True,
                             'refresh_token_requested_status': 'Không đính kèm refresh_token',
-                            'message': 'Đăng nhập thành công',
+                            'message': 'Đăng nhập thành công 1',
                             'redirect_url': '/user',
                         },
                         status=status.HTTP_200_OK
@@ -387,17 +387,7 @@ def refresh_token(request):
 def admin_account_list(request, page):
     try:
         admins = Account.objects.filter(role='admin')
-        page_number = request.GET.get("page_number",page)
-        paginator = Paginator(admins, 25)
-        try:
-            admin_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            admin_list = paginator.page(1)
-        except EmptyPage:
-            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
         response_data = {
-            'current_page' : admin_list.number,
-            'total_pages' : paginator.num_pages,
             'admins' :[
             {
                 'account_id': admin.id,
@@ -405,7 +395,7 @@ def admin_account_list(request, page):
                 'email': admin.email,
                 'status' : admin.status
             } 
-            for admin in admin_list]
+            for admin in  admins]
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
@@ -421,17 +411,7 @@ def admin_account_list(request, page):
 def user_account_list(request, page):
     try:
         users = Account.objects.filter(role='user')
-        page_number = request.GET.get("page_number",page)
-        paginator = Paginator(users, 25)
-        try:
-            user_list = paginator.page(page_number)
-        except PageNotAnInteger:
-            user_list = paginator.page(1)
-        except EmptyPage:
-            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
         response_data = {
-            'current_page' : user_list.number,
-            'total_pages' : paginator.num_pages,
             'users' :[
             {
                 'account_id': user.id,
@@ -441,7 +421,7 @@ def user_account_list(request, page):
                 'news_count': News.objects.filter(account=user).count(),
                 'comments_count': Comments.objects.filter(account=user).count(),
             } 
-            for user in user_list]
+            for user in users]
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
