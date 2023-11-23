@@ -1,6 +1,6 @@
 from .forms import RegistrationForm
 from .models import Account
-from news.models import News, Comments
+from news.models import News, Comments, Interacts
 from django.http import JsonResponse
 from django.contrib.auth.hashers import make_password
 from .serializer import AccountSerializer
@@ -382,10 +382,12 @@ def refresh_token(request):
                         },
                         status=status.HTTP_200_OK
                     ) 
-def admin_account_list(request):
+                
+@api_view(['GET'])                
+def admin_account_list(request, page):
     try:
         admins = Account.objects.filter(role='admin')
-        page_number = request.GET.get("page_number",1)
+        page_number = request.GET.get("page_number",page)
         paginator = Paginator(admins, 25)
         try:
             admin_list = paginator.page(page_number)
@@ -414,10 +416,12 @@ def admin_account_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-def user_account_list(request):
+
+@api_view(['GET'])
+def user_account_list(request, page):
     try:
         users = Account.objects.filter(role='user')
-        page_number = request.GET.get("page_number",1)
+        page_number = request.GET.get("page_number",page)
         paginator = Paginator(users, 25)
         try:
             user_list = paginator.page(page_number)
@@ -433,7 +437,9 @@ def user_account_list(request):
                 'account_id': user.id,
                 'username': user.username, 
                 'email': user.email,
-                'status' : user.status
+                'status' : user.status,
+                'news_count': News.objects.filter(account=user).count(),
+                'comments_count': Comments.objects.filter(account=user).count(),
             } 
             for user in user_list]
         }
@@ -446,14 +452,18 @@ def user_account_list(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-def user_detail(user_id):
+
+@api_view(['GET'])
+def user_detail(request,user_id):
     try:
-        account = Account.objects.get(id=user_id)
+        account = Account.objects.get(role = 'user', id=user_id)
         
         # Đếm số lượng tin tức và bình luận của người dùng
-        news_count = News.objects.filter(account=account).count()
+        news_count_real = News.objects.filter(account=account,label = 'real').count()
+        news_count_fake = News.objects.filter(account=account,label = 'fake').count()
         comments_count = Comments.objects.filter(account=account).count()
-        
+        total_you_follow = Interacts.objects.filter(label = 'account',target_type = 'follow',account = user_id).count()
+        total_following_you = Interacts.objects.filter(label = 'account',target_type = 'follow',target_id = user_id).count()
         # Convert the account object and counts to a dictionary
         user_data = {
             'id': account.id,
@@ -461,8 +471,11 @@ def user_detail(user_id):
             'email': account.email,
             'role': account.role,
             'avatar' : account.avatar,
-            'news_count': news_count,
+            'news_count_real': news_count_real,
+            'news_count_fake': news_count_fake,
             'comments_count': comments_count,
+            'total_you_follow' : total_you_follow,
+            'total_following_you' : total_following_you
         }
         return JsonResponse(user_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
@@ -470,4 +483,76 @@ def user_detail(user_id):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)  
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def list_user_you_follow(request, user_id, page):
+    try:
+        target_ids = Interacts.objects.filter(label='account', target_type='follow', account=user_id).values('target_id')
+        user_data = [target_id['target_id'] for target_id in target_ids]
+        page_number = request.GET.get("page_number",page)
+        paginator = Paginator(user_data, 25)
+        try:
+            user_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            user_list = paginator.page(1)
+        except EmptyPage:
+            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+        users = [Account.objects.get(id=target_id) for target_id in user_list]
+
+        response_data = {
+            'current_page': user_list.number,
+            'total_pages': paginator.num_pages,
+            'users': [
+            {
+                'id': user.id, 
+                'username': user.username,
+                'avatar' : user.avatar,
+                'news_count_real': News.objects.filter(account=user,label = 'real').count()
+            } 
+            for user in users
+            ]
+        }
+        return JsonResponse(response_data,status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        error_message = 'Account not found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
+@api_view(['GET'])
+def list_user_following_you(request, user_id, page):
+    try:
+        target_ids = Interacts.objects.filter(label='account', target_type='follow', target_id=user_id).values('target_id')
+        user_data = [target_id['target_id'] for target_id in target_ids]
+        page_number = request.GET.get("page_number",page)
+        paginator = Paginator(user_data, 25)
+        try:
+            user_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            user_list = paginator.page(1)
+        except EmptyPage:
+            return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+        users = [Account.objects.get(id=target_id) for target_id in user_list]
+
+        response_data = {
+            'current_page': user_list.number,
+            'total_pages': paginator.num_pages,
+            'users': [
+            {
+                'id': user.id, 
+                'username': user.username,
+                'avatar' : user.avatar,
+                'news_count_real': News.objects.filter(account=user,label = 'real').count()
+            } 
+            for user in users
+            ]
+        }
+        return JsonResponse(response_data,status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        error_message = 'Account not found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)

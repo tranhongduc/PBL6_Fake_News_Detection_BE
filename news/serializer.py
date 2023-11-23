@@ -9,9 +9,14 @@ class CategoriesSerializer(serializers.ModelSerializer):
 class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
-        fields = ['id', 'title', 'text', 'image', 'label', 'account_id', 'category_id', 'created_at', 'updated_at']
+        fields = '__all__'
+        
+    def validate_text(self, value):
+        if len(value) < 500:
+            raise serializers.ValidationError("The 'text' field must have at least 500 characters.")
+        return value
 
 class CommentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comments
-        fields = ['id', 'text', 'account_id', 'news_id', 'created_at', 'updated_at']
+        fields = '__all__'

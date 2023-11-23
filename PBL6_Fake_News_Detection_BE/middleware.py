@@ -19,6 +19,7 @@ class AdminAuthorizationMiddleware:
         return self.get_response(request, *args, **kwargs)
     
     def process_request(self, request, *args, **kwargs):
+        print('MIDDLEWARE')
         # Kiểm tra xem request có chứa access_token không
         if 'HTTP_AUTHORIZATION' in request.META:
             authorization_header = request.META['HTTP_AUTHORIZATION']
@@ -49,6 +50,7 @@ class AdminAuthorizationMiddleware:
                 # print(user)
 
                 if user['role'] == 'admin':
+                    print('Admin')
                     # Người dùng có quyền admin, cho phép request tiếp tục xử lý
                     return self.get_response(request, *args, **kwargs)
                 else:
@@ -136,6 +138,7 @@ class UserAuthorizationMiddleware:
                 # print(user)
 
                 if user['role'] == 'user':
+                    print('User')
                     # Người dùng có quyền user, cho phép request tiếp tục xử lý
                     return self.get_response(request, *args, **kwargs)
                 else:
