@@ -1,9 +1,11 @@
 import random
+import csv
 from factory import Factory, Faker, LazyAttribute, Sequence
 from .models import Categories, News, Comments, Interacts
 from auth_site.models import Account
 
 categories = ["Sport", "Cuisine", "Tourism", "Technology", "Health", "Education", "Music", "Movie", "Political", "Science"]
+csv.field_size_limit(100000000)
 
 def get_image_url(category_name):
     # Đặt đường dẫn của thư mục news trong Firebase Storage
@@ -26,18 +28,47 @@ class CategoriesFactory(Factory):
 class NewsFactory(Factory):
     class Meta:
         model = News
+        # options = {"charset": "utf8mb4", "collate": "utf8mb4_unicode_ci"}
+    def load_news_data(csv_file_path, limit=None):
+        with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            dataset = []
+            for i, row in enumerate(reader):
+                # Lấy dữ liệu từ file CSV
+                title = row.get("title")
+                text = row.get("text")
+                label_value = row.get("label")
+                label = "real" if label_value == "0" else "fake"
 
-    title = Faker('sentence', nb_words=6)
-    text = Faker('text', max_nb_chars=3000)
-    image = LazyAttribute(lambda x: get_image_url(x.category.name))
-    label = LazyAttribute(lambda x: random.choice(['fake'] * 3 + ['real'] * 7))
-    account = Faker('random_element', elements=Account.objects.filter(role='user'))
-    category = Faker('random_element', elements=Categories.objects.all())
+                # Fake các trường còn lại
+                image = LazyAttribute(lambda x: get_image_url(x.category.name))
+                account = Account.objects.filter(role='user').order_by("?").first()
+                category = Categories.objects.all().order_by("?").first()
 
+                # Tạo một đối tượng News và lưu vào database
+                news = News.objects.create(
+                    title=title,
+                    text=text,
+                    label=label,
+                    image=image,
+                    account=account,
+                    category=category,
+                )
+                dataset.append(news)
+                if limit and i + 1 >= limit:
+                    break
+
+ 
+    # title = Faker('sentence', nb_words=6)
+    # text = Faker('text', max_nb_chars=3000)
+    # image = LazyAttribute(lambda x: get_image_url(x.category.name))
+    # label = LazyAttribute(lambda x: random.choice(['fake'] * 3 + ['real'] * 7))
+    # account = Faker('random_element', elements=Account.objects.filter(role='user'))
+    # category = Faker('random_element', elements=Categories.objects.all())
+    
 class CommentsFactory(Factory):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     class Meta:
         model = Comments
-    
     text = Faker('text', max_nb_chars=500)
     account = Faker('random_element', elements=Account.objects.filter(role='user'))
     news = Faker('random_element', elements=News.objects.filter(label='real'))
@@ -56,9 +87,7 @@ class InteractsFactory(Factory):
                               else random.choice(Comments.objects.values_list('id', flat=True)) if x.label == 'comment'
                               else random.choice(Account.objects.filter(role='user').values_list('id', flat=True)))
 
-# Tạo danh sách News ngẫu nhiên
-num_objects = 100
-news = [NewsFactory() for _ in range(num_objects)]
+
 # Tạo danh sách Comments ngẫu nhiên
 num_object = 100
 comments = [CommentsFactory() for _ in range(num_object)]

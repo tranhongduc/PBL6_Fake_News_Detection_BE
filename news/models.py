@@ -9,8 +9,8 @@ class Categories(models.Model):
     
 class News(models.Model):
     id = models.AutoField(primary_key=True)
-    title = models.CharField(max_length=255)
-    text = models.TextField()
+    title = models.CharField(max_length=512)
+    text = models.TextField(db_collation='utf8mb4_unicode_ci')
     image = models.CharField(max_length=255, blank=True, null=True)
     label = models.CharField(max_length=10, null=True)
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
