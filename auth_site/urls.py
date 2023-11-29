@@ -13,4 +13,6 @@ urlpatterns = [
     path('refresh-token/', views.refresh_token, name='refresh_token'),
     path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('change_password/',  views.change_password, name='change_password'),
+    path('update_profile/', views.update_profile, name='update_profile'),
 ]
