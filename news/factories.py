@@ -41,9 +41,12 @@ class NewsFactory(Factory):
                 label = "real" if label_value == "0" else "fake"
 
                 # Fake các trường còn lại
-                image = LazyAttribute(lambda x: get_image_url(x.category.name))
+                # image = get_image_url(category.name)
                 account = Account.objects.filter(role='user').order_by("?").first()
                 category = Categories.objects.all().order_by("?").first()
+                if category:
+                    # Now, you can call get_image_url with the category name
+                    image = get_image_url(category.name)
 
                 # Tạo một đối tượng News và lưu vào database
                 news = News.objects.create(
