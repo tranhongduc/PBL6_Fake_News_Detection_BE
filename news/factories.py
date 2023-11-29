@@ -60,14 +60,6 @@ class NewsFactory(Factory):
                 dataset.append(news)
                 if limit and i + 1 >= limit:
                     break
-
- 
-    # title = Faker('sentence', nb_words=6)
-    # text = Faker('text', max_nb_chars=3000)
-    # image = LazyAttribute(lambda x: get_image_url(x.category.name))
-    # label = LazyAttribute(lambda x: random.choice(['fake'] * 3 + ['real'] * 7))
-    # account = Faker('random_element', elements=Account.objects.filter(role='user'))
-    # category = Faker('random_element', elements=Categories.objects.all())
     
 class CommentsFactory(Factory):                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     class Meta:
@@ -89,12 +81,3 @@ class InteractsFactory(Factory):
                               random.choice(News.objects.filter(label='real').values_list('id', flat=True)) if x.label == 'news' 
                               else random.choice(Comments.objects.values_list('id', flat=True)) if x.label == 'comment'
                               else random.choice(Account.objects.filter(role='user').values_list('id', flat=True)))
-
-
-# Tạo danh sách Comments ngẫu nhiên
-num_object = 100
-comments = [CommentsFactory() for _ in range(num_object)]
-# # Tạo danh sách Interacts ngẫu nhiên
-num_interacts = 1000
-interacts = [InteractsFactory.create() for _ in range(num_interacts)]
-Interacts.objects.bulk_create(interacts)
