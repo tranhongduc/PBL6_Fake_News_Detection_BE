@@ -36,7 +36,7 @@ class RegistrationForm(forms.Form):
     def clean_username(self):
         username = self.cleaned_data.get('username')
         # if Account.objects.filter(username=username).exists():
-            # raise ValidationError("Username đã tồn tại")
+        #     raise ValidationError("Username đã tồn tại")
         return username
 
     def clean_email(self):

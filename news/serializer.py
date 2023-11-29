@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Categories, News, Comments
+from .models import Categories, News, Comments, Interacts
         
 class CategoriesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,3 +33,8 @@ class CommentsSerializerUpdate(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = ['text']
+
+class InteractsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Interacts
+        fields = '__all__'

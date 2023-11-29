@@ -6,12 +6,12 @@ from PBL6_Fake_News_Detection_BE.middleware import AdminAuthorizationMiddleware,
 
 app_name = 'user'
 urlpatterns = [
-    path('categories/', news.get_all_categories, name='get_all_categories'),
-    path('news/', UserAuthorizationMiddleware(news.get_all_news), name='get_all_news'),
-    path('comments/', UserAuthorizationMiddleware(news.get_all_comments), name='get_all_comments'),
-    path('news/total/', news.total_news, name='total_news'),
+    # path('categories/', news.get_all_categories, name='get_all_categories'),
+    # path('news/', UserAuthorizationMiddleware(news.get_all_news), name='get_all_news'),
+    # path('comments/', UserAuthorizationMiddleware(news.get_all_comments), name='get_all_comments'),
+   
     path('paging/', news.paging, name='paging'),
-    path('news/<int:id>/', news.get_news_detail, name='get_news_detail'),
+    # path('news/<int:id>/', news.get_news_detail, name='get_news_detail'),
     path('list_user_you_follow/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
     path('list_user_following_you/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
     path('list_news_user/<int:number>/<int:page>', news.news_list_user, name='news_list_user'),
@@ -19,6 +19,7 @@ urlpatterns = [
     path('news/update/<int:news_id>/', news.update_news, name='update_news'),
     path('comment/store/', news.store_comment, name='store_comment'),
     path('comment/update/<int:comment_id>/', news.update_comment, name='update_comment'),
-
-    
+    path('news_list_by_author_user_real/<int:author_id>/', news.news_list_by_author_user_real, name='news_list_by_author_user_real'),
+    path('news_list_by_author_user_fake/', news.news_list_by_author_user_fake, name='news_list_by_author_user_fake'),
+    path('search/<int:number>/<int:page>/', news.search_news, name='search_news'),
 ]                       

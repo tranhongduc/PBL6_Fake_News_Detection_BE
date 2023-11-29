@@ -20,6 +20,7 @@ from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from .serializer import AccountSerializer, AccountSerializerUpdate, ChangePasswordSerializer
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     # Sử dụng trường 'email' thay vì 'username'
@@ -182,7 +183,7 @@ def login(request):
                             'refresh_token': str(refresh),
                             'is_new_refresh_token': True,
                             'refresh_token_requested_status': 'Không đính kèm refresh_token',
-                            'message': 'Đăng nhập thành công 1',
+                            'message': 'Đăng nhập thành công',
                             'redirect_url': '/user',
                         },
                         status=status.HTTP_200_OK
@@ -384,7 +385,7 @@ def refresh_token(request):
                     ) 
                 
 @api_view(['GET'])                
-def admin_account_list(request, page):
+def admin_account_list(request):
     try:
         admins = Account.objects.filter(role='admin')
         response_data = {
@@ -408,7 +409,7 @@ def admin_account_list(request, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
 @api_view(['GET'])
-def user_account_list(request, page):
+def user_account_list(request):
     try:
         users = Account.objects.filter(role='user')
         response_data = {
@@ -434,6 +435,8 @@ def user_account_list(request, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
 
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def user_detail(request,user_id):
     try:
         account = Account.objects.get(role = 'user', id=user_id)
@@ -441,6 +444,8 @@ def user_detail(request,user_id):
         # Đếm số lượng tin tức và bình luận của người dùng
         news_count_real = News.objects.filter(account=account,label = 'real').count()
         news_count_fake = News.objects.filter(account=account,label = 'fake').count()
+        interact_me = Interacts.objects.filter(label = 'account',target_type = 'follow',account = request.user.id,target_id = user_id).count()
+        interact = Interacts.objects.filter(label = 'account',target_type = 'follow',account = request.user.id,target_id = user_id)
         comments_count = Comments.objects.filter(account=account).count()
         total_you_follow = Interacts.objects.filter(label = 'account',target_type = 'follow',account = user_id).count()
         total_following_you = Interacts.objects.filter(label = 'account',target_type = 'follow',target_id = user_id).count()
@@ -454,6 +459,11 @@ def user_detail(request,user_id):
             'news_count_real': news_count_real,
             'news_count_fake': news_count_fake,
             'comments_count': comments_count,
+            'interact_me' : interact_me,
+            'interact' :  [{
+                'id': item.id,
+                }
+                for item in interact],
             'total_you_follow' : total_you_follow,
             'total_following_you' : total_following_you
         }
@@ -536,3 +546,48 @@ def list_user_following_you(request, user_id, page):
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    try:
+        user = Account.objects.get(id=request.user.id, status = 'active')
+    except user.DoesNotExist:
+        return JsonResponse({"error": "Account unactive"}, status=status.HTTP_404_NOT_FOUND)
+
+    original_user_data = AccountSerializerUpdate(user).data
+
+    serializer = AccountSerializerUpdate(user, data=request.data)
+
+    if serializer.is_valid():
+        serializer.save()
+
+        changes_made = serializer.data != original_user_data
+        if changes_made:
+            return JsonResponse({"message": "Updated successfully"}, status=status.HTTP_200_OK)
+        else:
+            return JsonResponse({"error": "No changes made."}, status=status.HTTP_200_OK)
+
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    account = request.user
+
+    serializer = ChangePasswordSerializer(data=request.data)
+
+    if serializer.is_valid():
+        # Check if the old password is correct
+        if not account.check_password(serializer.validated_data['old_password']):
+            return JsonResponse({"error": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate and set the new password
+        account.set_password(serializer.validated_data['new_password'])
+        account.save()
+
+        return JsonResponse({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
+
+    return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
