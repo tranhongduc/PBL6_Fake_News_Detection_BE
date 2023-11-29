@@ -333,20 +333,39 @@ def paging(request):
     )
 
 @api_view(['GET'])
-def news_list_by_author_user_real(request, author_id):
+def news_list_by_author_user_real(request, author_id, number, page):
     try:
         news = News.objects.filter(account=author_id, label = 'real')
+        news_count = News.objects.filter(account=author_id, label = 'real').count()
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+        
         response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news_count': news_count,
             'news': [
                 {
                     'id': item.id,
                     'title': item.title,
+                    'text': item.text,
+                    'image': item.image,
+                    'author': item.account.username,
                     'category': item.category.name,
                     'label': item.label,
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -370,6 +389,8 @@ def news_list_by_author_user_fake(request):
                 {
                     'id': item.id,
                     'title': item.title,
+                    'text': item.text,
+                    'image': item.image,
                     'category': item.category.name,
                     'label': item.label,
                     'comments_count': Comments.objects.filter(news=item).count(),
