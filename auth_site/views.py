@@ -63,6 +63,7 @@ def register(request):
         username = form.cleaned_data['username']
         email = form.cleaned_data['email']
         password = form.cleaned_data['password']
+        avatar = form.cleaned_data['avatar']
         
         print('Username:', username)
         print('Email:', email)
@@ -72,7 +73,7 @@ def register(request):
         hashed_password = make_password(password)
 
         # Tạo người dùng mới và lưu vào cơ sở dữ liệu với mật khẩu đã mã hóa
-        account = Account(username=username, email=email, password=hashed_password)
+        account = Account(username=username, email=email, password=hashed_password, avatar=avatar)
         account.save()
 
         return JsonResponse(
@@ -115,21 +116,31 @@ def login(request):
                 auth_header = request.headers['Authorization']
                 print('Auth header:', auth_header)
 
-                # Token thường có định dạng "Bearer <access_token>", nên chúng ta tách nó ra.
+                # Token thường có định dạng "Bearer <token>", nên chúng ta tách nó ra.
                 # Điều này chỉ áp dụng khi ta sử dụng Token Authentication.
-                refresh_token = auth_header.split(' ')[1] if auth_header.startswith('Bearer ') else auth_header
+                token = auth_header.split(' ')[1] if auth_header.startswith('Bearer ') else auth_header
 
                 try:
-                    payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=['HS256']) # mã hóa refresh_token
+                    payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256']) # mã hóa refresh_token
                     print('Payload:', payload)
-
-                    is_refresh_token_expired = False
-                    # Refresh token còn hiêu lực -> Tạo mới access_token, giữ nguyên refresh_token
-                    # Thay đổi jti để tạo một new_access_token duy nhất
-                    payload['jti'] = str(uuid.uuid4())
-                    # Tạo lại access_token sử dụng payload thay đổi
-                    new_access_token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-                    print('New access token:', new_access_token)
+                    
+                    # Truy cập thuộc tính token_type trong payload
+                    token_type = payload.get('token_type')
+                    
+                    if token_type == 'refresh':
+                        # Thực hiện các bước xử lý cho refresh_token
+                        # Refresh token còn hiêu lực -> Tạo mới access_token, giữ nguyên refresh_token
+                        is_refresh_token_expired = False
+                        # Tạo refresh token mới
+                        new_refresh = RefreshToken.for_user(user)
+                    elif token_type == 'access':
+                        return JsonResponse(
+                            data={
+                                'success': False,
+                                'error_message': 'Token đính kèm phải là access_token'
+                            },
+                            status=status.HTTP_401_UNAUTHORIZED
+                        )
                 except InvalidSignatureError:
                     return JsonResponse(
                         data={
@@ -183,7 +194,7 @@ def login(request):
                             'refresh_token': str(refresh),
                             'is_new_refresh_token': True,
                             'refresh_token_requested_status': 'Không đính kèm refresh_token',
-                            'message': 'Đăng nhập thành công',
+                            'message': 'Đăng nhập thành công 1',
                             'redirect_url': '/user',
                         },
                         status=status.HTTP_200_OK
@@ -192,8 +203,8 @@ def login(request):
                     return JsonResponse(
                         data={
                             'user': serializer.data,
-                            'access_token': str(new_access_token),
-                            'refresh_token': str(refresh_token),
+                            'access_token': str(new_refresh.access_token),
+                            'refresh_token': str(token),
                             'is_new_refresh_token': False,
                             'refresh_token_requested_status': 'Còn hiệu lực',
                             'message': 'Đăng nhập thành công',
@@ -209,8 +220,8 @@ def login(request):
                         return JsonResponse(
                             data={
                                 'user': serializer.data,
-                                'access_token': str(refresh.access_token),
-                                'refresh_token': str(refresh),
+                                'access_token': str(new_refresh.access_token),
+                                'refresh_token': str(new_refresh),
                                 'is_new_refresh_token': True,
                                 'is_refresh_token_blacklisted': False,
                                 'refresh_token_requested_status': 'Đã hết hạn nhưng chưa được blacklisted',
@@ -227,8 +238,7 @@ def login(request):
                             },
                             status=status.HTTP_401_UNAUTHORIZED
                         )
-            elif user.role == 'admin':
-                print('Con cac')             
+            elif user.role == 'admin':   
                 if is_refresh_token_expired == None: # Không có refresh_token đính kèm theo
                     return JsonResponse(
                         data={
@@ -246,8 +256,8 @@ def login(request):
                     return JsonResponse(
                         data={
                             'user': serializer.data,
-                            'access_token': str(new_access_token),
-                            'refresh_token': str(refresh_token),
+                            'access_token': str(new_refresh.access_token),
+                            'refresh_token': str(new_refresh),
                             'is_new_refresh_token': False,
                             'refresh_token_requested_status': 'Còn hiệu lực',
                             'message': 'Đăng nhập thành công',
@@ -263,8 +273,8 @@ def login(request):
                         return JsonResponse(
                             data={
                                 'user': serializer.data,
-                                'access_token': str(refresh.access_token),
-                                'refresh_token': str(refresh),
+                                'access_token': str(new_refresh.access_token),
+                                'refresh_token': str(new_refresh),
                                 'is_new_refresh_token': True,
                                 'is_refresh_token_blacklisted': False,
                                 'refresh_token_requested_status': 'Đã hết hạn nhưng chưa được blacklisted',

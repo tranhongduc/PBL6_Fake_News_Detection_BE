@@ -18,6 +18,10 @@ class RegistrationForm(forms.Form):
             'invalid': 'Định dạng email không hợp lệ',
         }
     )
+    avatar = forms.CharField(
+        widget=forms.TextInput, 
+        label='avatar',
+    )
     password = forms.CharField(
         widget=forms.PasswordInput,
         label='password',
