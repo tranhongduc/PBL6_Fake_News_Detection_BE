@@ -578,15 +578,20 @@ def change_password(request):
     account = request.user
 
     serializer = ChangePasswordSerializer(data=request.data)
-
+ 
     if serializer.is_valid():
         # Check if the old password is correct
         if not account.check_password(serializer.validated_data['old_password']):
             return JsonResponse({"error": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
-
+        if serializer.validate(request.data):
         # Validate and set the new password
-        account.set_password(serializer.validated_data['new_password'])
-        account.save()
+        # Validate and set the new password
+            new_password = request.data['new_password']
+            hashed_password = make_password(new_password)
+            account.password = hashed_password
+            account.save()
+
+        # Set the hashed password to the accountin
 
         return JsonResponse({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
 

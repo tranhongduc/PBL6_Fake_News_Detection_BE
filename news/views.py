@@ -564,4 +564,3 @@ def search_news(request,number,page):
         'search_term': search_term,
     }
     return JsonResponse(response_data, status=status.HTTP_200_OK)
-    return JsonResponse({"message": "Comment updated successfully", "data" : context}, status=status.HTTP_200_OK)
