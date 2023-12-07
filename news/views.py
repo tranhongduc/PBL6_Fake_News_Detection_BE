@@ -16,6 +16,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from datetime import datetime
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
@@ -133,15 +134,121 @@ def comments_list_by_user(request, user_id):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
     
 @api_view(['GET'])  
-def total_news(request):
-    news_count = News.objects.count()
+def total_news(request, current_year):
+    months = list(range(1, 13))
+    month_names = [datetime(2000, month, 1).strftime('%B') for month in months]
+    data1 = []
+    data2 = []
+    for i, month_name in enumerate(month_names, start=1):
+        news_real_count = News.objects.filter(label = 'real', created_at__year=current_year, created_at__month=i).count()
+        data1.append({
+            'month': month_name,
+            'total': news_real_count,
+        })
+
+        news_fake_count = News.objects.filter(label = 'fake', created_at__year=current_year, created_at__month=i).count()
+        data2.append({
+            'month': month_name,
+            'total': news_fake_count,
+        })
     return JsonResponse(
         data={
             'success': True,
-            'news_count': news_count
+            'message': 'Successfully',
+            'year': current_year,
+            'total_real_news': data1,
+            'total_fake_news': data2,
         },
         status=status.HTTP_200_OK
     )
+
+def total_comments(request, current_year):
+    months = list(range(1, 13))
+    month_names = [datetime(2000, month, 1).strftime('%B') for month in months]
+    data1 = []
+    data2 = []
+    for i, month_name in enumerate(month_names, start=1):
+        comment_count = Comments.objects.filter(created_at__year=current_year, created_at__month=i).count()
+        data1.append({
+            'month': month_name,
+            'total': comment_count,
+        })
+
+    return JsonResponse(
+        data={
+            'success': True,
+            'message': 'Successfully',
+            'year': current_year,
+            'total_comment': data1,
+        },
+        status=status.HTTP_200_OK
+    )
+@api_view(['GET'])  
+def total(request):
+    total_news = News.objects.count()
+    total_user = Account.objects.filter(role = 'user').count()
+    total_comment = Comments.objects.count()
+    return JsonResponse(
+        data={
+            'success': True,
+            'message': 'Successfully',
+            'total_comment': total_comment,
+            'total_news': total_news,
+            'total_user': total_user,
+        },
+        status=status.HTTP_200_OK
+    )
+
+def total_month(request):
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    total_comments = Comments.objects.filter(created_at__year=current_year, created_at__month=current_month).count()
+    total_user = Account.objects.filter(role = 'user', created_at__year=current_year, created_at__month=current_month).count()
+    total_news_real = News.objects.filter(label = 'real', created_at__year=current_year, created_at__month=current_month).count()
+    total_news_fake = News.objects.filter(label = 'fake', created_at__year=current_year, created_at__month=current_month).count()
+    data1 = {
+        "id": 'Total Comments',
+        "name": 'Total Comments',
+        "total": total_comments
+    }
+
+    data2 = {
+        "id": 'Total User',
+        "name": 'Total User',
+        "total": total_user
+    }
+
+    data3 = {
+        "id": 'Total News Real',
+        "name": 'Total News Real',
+        "total": total_news_real
+    }
+    
+    data4 = {
+        "id": 'Total News Fake',
+        "name": 'Total News Fake',
+        "total": total_news_fake
+    }
+    data = [data4, data3, data2, data1]
+
+    return JsonResponse({
+        'status': 200,
+        'message': 'Successfully',
+        'data':  data,
+    })
+
+def total_category(request):
+    categories = Categories.objects.all()
+    category_info = []
+    for category in categories:
+        news_count = News.objects.filter(category=category).count()
+        category_info.append({
+            'id': category.name,
+            'name': category.name,
+            'news_count': news_count,
+        })
+    return JsonResponse({'categories': category_info},status=status.HTTP_200_OK)
+
  # ---------------------------------     ALL    ---------------------------------   
 
 #-----Category------
@@ -311,29 +418,83 @@ def news_list_user(request,number,page):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
+@api_view(['GET'])
+def search_news(request,number,page):
+    # Get the category and search term from the request
+    category = request.GET.get('category', '')
+    search_term = request.GET.get('search', '')
+
+    # Query the News model with filters
+    news_query = News.objects.filter(label = 'real')
+
+    if category:
+        news_query = news_query.filter(category=category)
+
+    if search_term:
+        # Use case-insensitive search on title field
+        news_query = news_query.filter(Q(title__icontains=search_term))
+
+    # Retrieve the filtered news articles
+    news_articles = news_query
+    news_count = news_query.count()
+    page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+    paginator = Paginator(news_articles, number)
+    try:
+        news_list = paginator.page(page_number)
+    except PageNotAnInteger:
+        news_list = paginator.page(1)
+    except EmptyPage:
+        # Handle the case where the page is empty
+        return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+    # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
+    response_data = {
+        'current_page': news_list.number,
+        'total_pages': paginator.num_pages,
+        'news_count':news_count,
+        'news': [
+            {
+                'id': item.id,
+                'image': item.image,
+                'title': item.title,
+                'text' : item.text,
+                'author': item.account.username,
+                'category': item.category.name,
+                'label': item.label,
+                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'comments_count': Comments.objects.filter(news=item).count(),
+                'created_at': item.created_at
+            }
+            for item in news_list
+        ],
+        'selected_category': category,
+        'search_term': search_term,
+    }
+    return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+# @api_view(['GET'])
+# def paging(request):
+#     page_number = int(request.query_params.get('page_number', 1))
+#     page_size = int(request.query_params.get('page_size', 10))
+
+#     start = (page_number - 1) * page_size
+#     end = start + page_size
+
+#     queryset = News.objects.all()[start:end]
+#     serialized_data = NewsSerializer(queryset, many=True)
+
+#     return JsonResponse(
+#         data={
+#             'list_news': serialized_data.data,
+#             'page_number': page_number,
+#             'page_size': page_size
+#         },
+#         status=status.HTTP_200_OK
+#     )
 
 @api_view(['GET'])
-def paging(request):
-    page_number = int(request.query_params.get('page_number', 1))
-    page_size = int(request.query_params.get('page_size', 10))
-
-    start = (page_number - 1) * page_size
-    end = start + page_size
-
-    queryset = News.objects.all()[start:end]
-    serialized_data = NewsSerializer(queryset, many=True)
-
-    return JsonResponse(
-        data={
-            'list_news': serialized_data.data,
-            'page_number': page_number,
-            'page_size': page_size
-        },
-        status=status.HTTP_200_OK
-    )
-
-@api_view(['GET'])
-def news_list_by_author_user_real(request, author_id, number, page):
+def list_news_real_by_author(request, author_id, number, page):
     try:
         news = News.objects.filter(account=author_id, label = 'real')
         news_count = News.objects.filter(account=author_id, label = 'real').count()
@@ -379,24 +540,95 @@ def news_list_by_author_user_real(request, author_id, number, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
     
 @api_view(['GET'])
+def search_news_real_by_author(request,author_id,number,page):
+    # Get the category and search term from the request
+    category = request.GET.get('category', '')
+    search_term = request.GET.get('search', '')
+
+    # Query the News model with filters
+    news_query = News.objects.filter(account=author_id,label = 'real')
+
+    if category:
+        news_query = news_query.filter(category=category)
+
+    if search_term:
+        # Use case-insensitive search on title field
+        news_query = news_query.filter(Q(title__icontains=search_term))
+
+    # Retrieve the filtered news articles
+    news_articles = news_query
+    news_count = news_query.count()
+    page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+    paginator = Paginator(news_articles, number)
+    try:
+        news_list = paginator.page(page_number)
+    except PageNotAnInteger:
+        news_list = paginator.page(1)
+    except EmptyPage:
+        # Handle the case where the page is empty
+        return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+    # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
+    response_data = {
+        'current_page': news_list.number,
+        'total_pages': paginator.num_pages,
+        'news_count':news_count,
+        'news': [
+            {
+                'id': item.id,
+                'image': item.image,
+                'title': item.title,
+                'text' : item.text,
+                'author': item.account.username,
+                'category': item.category.name,
+                'label': item.label,
+                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'comments_count': Comments.objects.filter(news=item).count(),
+                'created_at': item.created_at
+            }
+            for item in news_list
+        ],
+        'selected_category': category,
+        'search_term': search_term,
+    }
+    return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
-def news_list_by_author_user_fake(request):
+def list_news_fake_by_author(request,number,page):
     try:
-        news = News.objects.filter(account=request.user.id, label = 'fake')
+        news = News.objects.filter(account=request.user, label = 'fake')
+        news_count = News.objects.filter(account=request.user, label = 'fake').count()
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+        
         response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news_count': news_count,
             'news': [
                 {
                     'id': item.id,
                     'title': item.title,
                     'text': item.text,
                     'image': item.image,
+                    'author': item.account.username,
                     'category': item.category.name,
                     'label': item.label,
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -408,7 +640,63 @@ def news_list_by_author_user_fake(request):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
-#-------News-------
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def search_news_fake_by_author(request,number,page):
+    # Get the category and search term from the request
+    category = request.GET.get('category', '')
+    search_term = request.GET.get('search', '')
+
+    # Query the News model with filters
+    news_query = News.objects.filter(account=request.user,label = 'fake')
+
+    if category:
+        news_query = news_query.filter(category=category)
+
+    if search_term:
+        # Use case-insensitive search on title field
+        news_query = news_query.filter(Q(title__icontains=search_term))
+
+    # Retrieve the filtered news articles
+    news_articles = news_query
+    news_count = news_query.count()
+    page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+    paginator = Paginator(news_articles, number)
+    try:
+        news_list = paginator.page(page_number)
+    except PageNotAnInteger:
+        news_list = paginator.page(1)
+    except EmptyPage:
+        # Handle the case where the page is empty
+        return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+    # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
+    response_data = {
+        'current_page': news_list.number,
+        'total_pages': paginator.num_pages,
+        'news_count':news_count,
+        'news': [
+            {
+                'id': item.id,
+                'image': item.image,
+                'title': item.title,
+                'text' : item.text,
+                'author': item.account.username,
+                'category': item.category.name,
+                'label': item.label,
+                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'comments_count': Comments.objects.filter(news=item).count(),
+                'created_at': item.created_at
+            }
+            for item in news_list
+        ],
+        'selected_category': category,
+        'search_term': search_term,
+    }
+    return JsonResponse(response_data, status=status.HTTP_200_OK)
+
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -527,61 +815,5 @@ def delete_interact(request, interact_id):
     else:
         return JsonResponse({"error": "You don't have permission to delete this interact"}, status=status.HTTP_403_FORBIDDEN)
     
-def search_news(request,number,page):
-    # Get the category and search term from the request
-    category = request.GET.get('category', '')
-    search_term = request.GET.get('search', '')
 
-    # Query the News model with filters
-    news_query = News.objects.filter(label = 'real')
 
-    if category:
-        news_query = news_query.filter(category=category)
-
-    if search_term:
-        # Use case-insensitive search on title field
-        news_query = news_query.filter(Q(title__icontains=search_term))
-
-    # Retrieve the filtered news articles
-    news_articles = news_query
-    news_count = news_query.count()
-    # Pass the filtered news articles to the template
-    # context = {
-    #     'news_articles': news_articles,
-    #     'selected_category': category,
-    #     'search_term': search_term,
-    # }
-    page_number = request.GET.get("page_number",page)
-        # Create a Pa ginator object
-    paginator = Paginator(news_articles, number)
-    try:
-        news_list = paginator.page(page_number)
-    except PageNotAnInteger:
-        news_list = paginator.page(1)
-    except EmptyPage:
-        # Handle the case where the page is empty
-        return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
-    # Lặp qua danh sách danh mục và tính số lượng tin tức cho mỗi danh mục
-    response_data = {
-        'current_page': news_list.number,
-        'total_pages': paginator.num_pages,
-        'news_count':news_count,
-        'news': [
-            {
-                'id': item.id,
-                'image': item.image,
-                'title': item.title,
-                'text' : item.text,
-                'author': item.account.username,
-                'category': item.category.name,
-                'label': item.label,
-                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
-                'comments_count': Comments.objects.filter(news=item).count(),
-                'created_at': item.created_at
-            }
-            for item in news_list
-        ],
-        'selected_category': category,
-        'search_term': search_term,
-    }
-    return JsonResponse(response_data, status=status.HTTP_200_OK)

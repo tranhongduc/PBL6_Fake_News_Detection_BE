@@ -13,7 +13,14 @@ urlpatterns = [
     path('coments_list_by_user/<int:user_id>/', AdminAuthorizationMiddleware(news.comments_list_by_user), name='coments_list_by_user'),
     path('list-admin/', AdminAuthorizationMiddleware(auth.admin_account_list), name='admin_account_list'),
     path('list-user/', AdminAuthorizationMiddleware(auth.user_account_list), name='user_account_list'),
-    path('news/total/', news.total_news, name='total_news'),
+    path('change_user_account_permissions/<int:user_id>/', auth.change_user_account_permissions, name='change_user_account_permissions'),
+    #thong ke admin
+    path('total_news/<int:current_year>', news.total_news, name='total_news'),
+    path('total_comments/<int:current_year>', news.total_comments, name='total_comments'),
+    path('total/', news.total, name='total'),
+    path('total_month/', news.total_month, name='total_month'),
+    path('total_category/', news.total_category, name='total_category'),
+
     #all admin and user
     path('detail-user/<int:user_id>/', auth.user_detail, name='user_detail'),
     path('categories_list/', news.categories_list, name='categories_list'),
