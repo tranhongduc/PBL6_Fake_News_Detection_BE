@@ -484,11 +484,13 @@ def user_detail(request,user_id):
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['GET'])
-def list_user_you_follow(request, user_id, page):
+def list_user_you_follow(request,page):
     try:
-        target_ids = Interacts.objects.filter(label='account', target_type='follow', account=user_id).values('target_id')
+        target_ids = Interacts.objects.filter(label='account', target_type='follow', account=request.user).values('target_id')
         user_data = [target_id['target_id'] for target_id in target_ids]
         page_number = request.GET.get("page_number",page)
         paginator = Paginator(user_data, 25)
@@ -521,10 +523,12 @@ def list_user_you_follow(request, user_id, page):
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
     
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @api_view(['GET'])
-def list_user_following_you(request, user_id, page):
+def list_user_following_you(request, page):
     try:
-        target_ids = Interacts.objects.filter(label='account', target_type='follow', target_id=user_id).values('target_id')
+        target_ids = Interacts.objects.filter(label='account', target_type='follow', target_id=request.user).values('target_id')
         user_data = [target_id['target_id'] for target_id in target_ids]
         page_number = request.GET.get("page_number",page)
         paginator = Paginator(user_data, 25)
@@ -606,3 +610,22 @@ def change_password(request):
         return JsonResponse({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
 
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def change_user_account_permissions(request, user_id):
+    try:
+        user = Account.objects.get(id=user_id)
+    except user.DoesNotExist:
+        return JsonResponse({"error": "Account unactive"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.user.role == 'admin':
+        if user.status == 'active':
+            user.status = 'unactive'
+        else:
+            user.status = 'active'
+        user.save()
+        return JsonResponse({"message": "update successfully"}, status=status.HTTP_204_NO_CONTENT)
+    else:
+        return JsonResponse({"error": "You don't have permission to delete this comment"}, status=status.HTTP_403_FORBIDDEN)
