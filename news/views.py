@@ -17,11 +17,24 @@ from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from datetime import datetime
+from keras.models import load_model
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from bs4 import BeautifulSoup
+import re
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import numpy as np
+from auth_site.serializer import AccountSerializer
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
     page_size_query_param = 'page_size'
     max_page_size = 100  # Đặt giá trị mặc định cho max_page_size
+
+MAX_SEQUENCE_LENGTH = 400
+MAX_NUM_WORDS = 10000
+EMBEDDING_VECTOR_FEATURES=50
 
 # ---------------------------------     ADMIN  ROUTE     ---------------------------------
         
@@ -473,26 +486,6 @@ def search_news(request,number,page):
     }
     return JsonResponse(response_data, status=status.HTTP_200_OK)
 
-# @api_view(['GET'])
-# def paging(request):
-#     page_number = int(request.query_params.get('page_number', 1))
-#     page_size = int(request.query_params.get('page_size', 10))
-
-#     start = (page_number - 1) * page_size
-#     end = start + page_size
-
-#     queryset = News.objects.all()[start:end]
-#     serialized_data = NewsSerializer(queryset, many=True)
-
-#     return JsonResponse(
-#         data={
-#             'list_news': serialized_data.data,
-#             'page_number': page_number,
-#             'page_size': page_size
-#         },
-#         status=status.HTTP_200_OK
-#     )
-
 @api_view(['GET'])
 def list_news_real_by_author(request, author_id, number, page):
     try:
@@ -704,13 +697,93 @@ def store_news(request):
     data_copy = request.data.copy()
     data_copy['account'] = request.user.id
 
+    rnn_model = load_model('./ai_model/trained_model/rnn_model.h5')
+    lstm_model = load_model('./ai_model/trained_model/lstm_model.h5')
+    bid_model = load_model('./ai_model/trained_model/bid_model.h5')
+    
     serializer = NewsSerializer(data=data_copy)
 
     if serializer.is_valid():
+        print('Serializer data: ', serializer.validated_data)
+
+        # Loại bỏ các cặp thẻ HTML từ giá trị của field text
+        text_without_html = BeautifulSoup(serializer.validated_data['text'], 'html.parser').get_text(separator=' ')
+
+        # Nối chuỗi title và text đã loại bỏ các thẻ HTML
+        combined_text = f"{serializer.validated_data['title']} {text_without_html}"
+        print('Combined text:', combined_text)
+
+        # Chuẩn hóa văn bản
+        combined_text_stemming = perform_stemming(combined_text)
+        print('Combined text after stemming:', combined_text_stemming)
+
+        # Dự đoán xem bài viết có phải là thật hay giả
+        label = predict_fake_or_real(combined_text_stemming, lstm_model)
+        print('Label:', label)
+
+        # Chuyển đối tượng Account thành JSON serializable
+        # Lấy đối tượng Account từ ID
+        account_email = serializer.validated_data['account']
+        print('Account Email:', account_email)
+        account = Account.objects.get(email=account_email)
+        print('Account:', account)
+        print('Account ID:', account.id)
+
+        # account_serializer = AccountSerializer(account)
+        # account_data = account_serializer.data
+
+        # Lấy giá trị ID của tài khoản
+        # account_id = account.id
+
+        # Gán giá trị cho trường label và trường account
+        serializer.validated_data['label'] = label
+        serializer.validated_data['account'] = account.id
+
         serializer.save()
+        
         return JsonResponse({"message": "News created successfully",
-                             "data": serializer.data}, status=status.HTTP_201_CREATED)
+                             "data": serializer.validated_data}, status=status.HTTP_201_CREATED)
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+def perform_stemming(text):
+    # Tải stop words nếu chưa tải
+    try:
+        stopwords.words('english')
+    except LookupError:
+        import nltk
+        nltk.download('stopwords')
+
+    # Khởi tạo đối tượng PorterStemmer
+    porter_stemmer = PorterStemmer()
+
+    # Xử lý văn bản
+    review = re.sub('[^a-zA-Z]', ' ', text)
+    review = review.lower()
+    review = review.split()
+
+    review = [porter_stemmer.stem(word) for word in review if not word in stopwords.words('english')]
+    review = ' '.join(review)
+
+    return review
+
+def predict_fake_or_real(news_content, model):
+    # Chuẩn bị dữ liệu đầu vào cho mô hình
+    # Khởi tạo một đối tượng Tokenize
+    tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
+
+    sequence = tokenizer.texts_to_sequences([news_content])
+    # Đảm bảo rằng chuỗi có chiều dài là 400
+    sequence_padded = pad_sequences(sequence, maxlen=MAX_SEQUENCE_LENGTH)
+
+    # Dự đoán
+    prediction = model.predict(sequence_padded)
+    print('Prediction:', prediction)
+
+    # Chuyển đổi giá trị dự đoán thành nhãn ("Fake" hoặc "Real"), điều này phụ thuộc vào cách bạn đào tạo mô hình
+    # Ví dụ: Nếu giá trị dự đoán > 0.9, bạn có thể xem nó là "Real", ngược lại là "Fake"
+    label = "real" if prediction > 0.9 else "fake"
+
+    return label
 
 @api_view(['PUT'])
 @authentication_classes([JWTAuthentication])

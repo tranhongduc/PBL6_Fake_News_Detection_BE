@@ -13,7 +13,7 @@ class News(models.Model):
     text = models.TextField(db_collation='utf8mb4_unicode_ci')
     image = models.CharField(max_length=255, blank=True, null=True)
     label = models.CharField(max_length=10, null=True)
-    account = models.ForeignKey(Account, on_delete=models.CASCADE)
+    account_id = models.ForeignKey(Account, on_delete=models.CASCADE)
     category = models.ForeignKey(Categories, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

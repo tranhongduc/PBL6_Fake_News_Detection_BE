@@ -16,16 +16,13 @@ urlpatterns = [
     path('list_new_fake_by_author/<int:number>/<int:page>', news.list_news_fake_by_author, name='list_news_fake_by_author'), 
     path('search_fake_in_user/<int:number>/<int:page>/', news.search_news_fake_by_author, name='search_news_fake_by_author'),
     
-    # path('paging/', news.paging, name='paging'),
-    path('list_user_you_follow/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
-    path('list_user_following_you/<int:user_id>/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
+    path('list_user_you_follow/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
+    path('list_user_following_you/<int:page>', auth.list_user_you_follow, name='list_user_you_follow'),
     
     path('news/store/', news.store_news, name='store_news'),
     path('news/update/<int:news_id>/', news.update_news, name='update_news'),
     path('comment/store/', news.store_comment, name='store_comment'),
     path('comment/update/<int:comment_id>/', news.update_comment, name='update_comment'),
-
-    
 ]
 
  
