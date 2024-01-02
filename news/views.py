@@ -26,6 +26,7 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import numpy as np
 from auth_site.serializer import AccountSerializer
+from django.db.models import Count
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
@@ -341,6 +342,22 @@ def delete_news(request, news_id):
 def comments_list_by_news(request, news_id, page):
     try:
         comments = Comments.objects.filter(news=news_id).order_by('-created_at')
+        
+       # Lấy danh sách account_id unique từ các comment
+        unique_account_ids = comments.values_list('account_id', flat=True).distinct()
+        
+        account_info_list = []
+        for account_id in unique_account_ids:
+            like_counts = get_like_counts(account_id)
+            comment_counts = get_comment_counts(account_id)
+            
+            # Thực hiện xử lý kết quả, ví dụ thêm vào account_info_list
+            account_info_list.append({
+                'account_id': account_id,
+                'like_counts': like_counts,
+                'comment_counts': comment_counts,
+            })
+            
         page_number = request.GET.get("page_number",page)
         paginator = Paginator(comments, 25)
         try:
@@ -349,19 +366,23 @@ def comments_list_by_news(request, news_id, page):
             comment_list = paginator.page(1)
         except EmptyPage:
             return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+
         response_data = {
             'current_page' : comment_list.number,
             'total_pages' : paginator.num_pages,
             'comments' :[
-            {
-                'id': item.id,
-                'author':item.account.username,
-                'avatar':item.account.avatar,
-                'text': item.text,
-                'created_at' : item.created_at,
-            } 
-            for item in comment_list
-            ]
+                {
+                    'id': item.id,
+                    'author':item.account.username,
+                    'author_id':item.account.id,
+                    'avatar':item.account.avatar,
+                    'join_date':item.account.created_at,
+                    'text': item.text,
+                    'created_at' : item.created_at,
+                } 
+                for item in comment_list
+            ],
+            'account_info_list': account_info_list,
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
@@ -369,6 +390,24 @@ def comments_list_by_news(request, news_id, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+    
+def get_like_counts(account_id):
+    # Query để lấy tổng số lượng like bài viết của một người dùng
+    like_counts = Interacts.objects.filter(
+        account_id=account_id,
+        label='comment',
+        target_type='like'
+    ).aggregate(total_likes=Count('id'))
+
+    return like_counts['total_likes'] if like_counts else 0
+
+def get_comment_counts(account_id):
+    # Query để lấy tổng số lượng comment của một người dùng
+    comment_counts = Comments.objects.filter(
+        account_id=account_id
+    ).count()
+
+    return comment_counts
     
 @api_view(['DELETE'])
 @authentication_classes([JWTAuthentication])
@@ -700,6 +739,7 @@ def store_news(request):
     rnn_model = load_model('./ai_model/trained_model/rnn_model.h5')
     lstm_model = load_model('./ai_model/trained_model/lstm_model.h5')
     bid_model = load_model('./ai_model/trained_model/bid_model.h5')
+    my_model = load_model('./ai_model/trained_model/my_model.h5')
     
     serializer = NewsSerializer(data=data_copy)
 
@@ -718,16 +758,16 @@ def store_news(request):
         print('Combined text after stemming:', combined_text_stemming)
 
         # Dự đoán xem bài viết có phải là thật hay giả
-        label = predict_fake_or_real(combined_text_stemming, lstm_model)
+        label = predict_fake_or_real(combined_text_stemming, bid_model)
         print('Label:', label)
 
         # Chuyển đối tượng Account thành JSON serializable
         # Lấy đối tượng Account từ ID
         account_email = serializer.validated_data['account']
-        print('Account Email:', account_email)
+        # print('Account Email:', account_email)
         account = Account.objects.get(email=account_email)
-        print('Account:', account)
-        print('Account ID:', account.id)
+        # print('Account:', account)
+        # print('Account ID:', account.id)
 
         # account_serializer = AccountSerializer(account)
         # account_data = account_serializer.data
