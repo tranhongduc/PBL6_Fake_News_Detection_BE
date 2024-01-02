@@ -26,6 +26,7 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import numpy as np
 from auth_site.serializer import AccountSerializer
+from django.db import transaction
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
@@ -399,11 +400,32 @@ def news_detail(request, news_id):
 def delete_news(request, news_id):
     try:
         news = News.objects.get(id=news_id)
+        comments = Comments.objects.filter(news=news_id)
+        interacts_news = Interacts.objects.filter(label='news', target_id=news_id)
     except News.DoesNotExist:
         return JsonResponse({"error": "News not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.user.role == 'admin' or request.user.id == news.account.id:
-        news.delete()
+        try:
+            with transaction.atomic():
+                news.delete()
+
+                # Check if interacts_comment exists before deleting
+                if interacts_news.exists():
+                    interacts_news.delete()
+
+                # Check if sub_comments exist before deleting
+                for comment in comments:
+                    comment_id = comment.id
+                    interacts_comment = Interacts.objects.filter(label='comment', target_id=comment_id)
+                    if interacts_comment.exists():
+                        interacts_comment.delete()
+                    comment.delete()
+                        
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to delete comment and interactions. {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
         return JsonResponse({"message": "News deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     else:
         return JsonResponse({"error": "You don't have permission to delete this news"}, status=status.HTTP_403_FORBIDDEN)
@@ -471,11 +493,35 @@ def comments_list_by_news(request, news_id, page):
 def delete_comment(request, comment_id):
     try:
         comment = Comments.objects.get(id=comment_id)
-    except comment.DoesNotExist:
+        news = News.objects.get(id=comment.news.id)
+        sub_comments = Comments.objects.filter(parent_comment_id=comment_id)
+        interacts_comment = Interacts.objects.filter(label='comment', target_id=comment_id)
+    except Comments.DoesNotExist:
         return JsonResponse({"error": "comment not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.user.role == 'admin' or request.user.id == comment.account.id:
-        comment.delete()
+    if request.user.role == 'admin' or request.user.id == comment.account.id or request.user.id == news.account.id:
+        try:
+            with transaction.atomic():
+                comment.delete()
+
+                # Check if interacts_comment exists before deleting
+                if interacts_comment.exists():
+                    interacts_comment.delete()
+
+                # Check if sub_comments exist before deleting
+                if sub_comments.exists():
+                    for sub_comment in sub_comments:
+                        sub_comment_id = sub_comment.id
+                        interacts_sub_comment = Interacts.objects.filter(label='comment', target_id=sub_comment_id)
+
+                        # Check if interacts_sub_comment exists before deleting
+                        if interacts_sub_comment.exists():
+                            interacts_sub_comment.delete()
+
+                        sub_comment.delete()
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to delete comment and interactions. {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return JsonResponse({"message": "comment deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     else:
         return JsonResponse({"error": "You don't have permission to delete this comment"}, status=status.HTTP_403_FORBIDDEN)

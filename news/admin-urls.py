@@ -27,5 +27,6 @@ urlpatterns = [
     path('detail-news/<int:news_id>/', news.news_detail, name='news_detail'),
     path('comments_list_by_news/<int:news_id>/<int:page>', news.comments_list_by_news, name='comments_list_by_news'),
     path('news/delete/<int:news_id>/', news.delete_news, name='delete_news'),
+    path('comment/delete/<int:comment_id>/', news.delete_comment, name='delete_comment'),
     path('update_profile/', auth.update_profile, name='update_profile'),
 ]                       
