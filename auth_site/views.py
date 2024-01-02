@@ -416,13 +416,25 @@ def admin_account_list(request):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-def user_account_list(request):
+def user_account_list(request,number,page):
     try:
         users = Account.objects.filter(role='user')
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(users, number)
+        try:
+            users_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            users_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         response_data = {
+            'current_page': users_list.number,
+            'total_pages': paginator.num_pages,
             'users' :[
             {
                 'account_id': user.id,
@@ -442,7 +454,7 @@ def user_account_list(request):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -483,7 +495,7 @@ def user_detail(request,user_id):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -521,7 +533,7 @@ def list_user_you_follow(request,page):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -559,7 +571,7 @@ def list_user_following_you(request, page):
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 @authentication_classes([JWTAuthentication])

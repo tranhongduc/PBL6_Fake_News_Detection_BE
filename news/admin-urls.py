@@ -7,12 +7,12 @@ app_name = 'Admin'
 
 urlpatterns = [
    
-    path('news_list/', AdminAuthorizationMiddleware(news.news_list_admin), name='news_list_admin'),
-    path('news_list_by_category/<int:category_id>/', AdminAuthorizationMiddleware(news.news_list_by_category_admin), name='news_list_by_category_admin'),
-    path('news_list_by_author/<int:author_id>/', AdminAuthorizationMiddleware(news.news_list_by_author_admin), name='news_list_by_author_admin'),
-    path('coments_list_by_user/<int:user_id>/', AdminAuthorizationMiddleware(news.comments_list_by_user), name='coments_list_by_user'),
+    path('news_list/<int:number>/<int:page>', AdminAuthorizationMiddleware(news.news_list_admin), name='news_list_admin'),
+    path('news_list_by_category/<int:category_id>/<int:number>/<int:page>', AdminAuthorizationMiddleware(news.news_list_by_category_admin), name='news_list_by_category_admin'),
+    path('news_list_by_author/<int:author_id>/<int:number>/<int:page>', AdminAuthorizationMiddleware(news.news_list_by_author_admin), name='news_list_by_author_admin'),
+    path('coments_list_by_user/<int:user_id>/<int:number>/<int:page>', AdminAuthorizationMiddleware(news.comments_list_by_user), name='coments_list_by_user'),
     path('list-admin/', AdminAuthorizationMiddleware(auth.admin_account_list), name='admin_account_list'),
-    path('list-user/', AdminAuthorizationMiddleware(auth.user_account_list), name='user_account_list'),
+    path('list-user/<int:number>/<int:page>', AdminAuthorizationMiddleware(auth.user_account_list), name='user_account_list'),
     path('change_user_account_permissions/<int:user_id>/', auth.change_user_account_permissions, name='change_user_account_permissions'),
     #thong ke admin
     path('total_news/<int:current_year>', news.total_news, name='total_news'),
