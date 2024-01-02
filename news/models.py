@@ -35,4 +35,3 @@ class Interacts(models.Model):
     target_type = models.CharField(max_length=10)
     target_id = models.IntegerField()
     use_in_migration = True
-    
