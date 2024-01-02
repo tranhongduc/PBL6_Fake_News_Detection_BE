@@ -3,6 +3,8 @@ import csv
 from factory import Factory, Faker, LazyAttribute, Sequence
 from .models import Categories, News, Comments, Interacts
 from auth_site.models import Account
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 categories = ["Sport", "Cuisine", "Tourism", "Technology", "Health", "Education", "Music", "Movie", "Political", "Science"]
 csv.field_size_limit(100000000)
@@ -32,7 +34,7 @@ class NewsFactory(Factory):
     def load_news_data(csv_file_path, limit=None):
         with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
-            dataset = []
+            
             for i, row in enumerate(reader):
                 # Lấy dữ liệu từ file CSV
                 title = row.get("title")
@@ -47,17 +49,29 @@ class NewsFactory(Factory):
                 if category:
                     # Now, you can call get_image_url with the category name
                     image = get_image_url(category.name)
+                    
+                # Tạo ngẫu nhiên giá trị thời gian từ đầu năm 2020 đến cuối năm 2023
+                start_date = datetime(2020, 1, 1)
+                end_date = datetime(2023, 12, 31)
+                random_date = start_date + timedelta(
+                    days=random.randint(0, (end_date - start_date).days),
+                    seconds=random.randint(0, 86400)  # 86400 seconds in a day
+                )
+                
+                # Tạo đối tượng datetime có thông tin về múi giờ
+                random_date_aware = timezone.make_aware(random_date)
 
-                # Tạo một đối tượng News và lưu vào database
-                news = News.objects.create(
+                news = News(
                     title=title,
                     text=text,
                     label=label,
                     image=image,
                     account=account,
                     category=category,
+                    created_at=random_date_aware,
+                    updated_at=random_date_aware
                 )
-                dataset.append(news)
+                news.save()  # Lưu đối tượng vào database
                 if limit and i + 1 >= limit:
                     break
     

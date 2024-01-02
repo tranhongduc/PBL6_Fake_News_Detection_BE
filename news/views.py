@@ -389,7 +389,7 @@ def delete_comment(request, comment_id):
 @api_view(['GET'])
 def news_list_user(request,number,page):
     try:
-        news = News.objects.filter(label = 'real')
+        news = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
         news_count = News.objects.filter(label = 'real').count()
         page_number = request.GET.get("page_number",page)
         # Create a Pa ginator object
@@ -439,7 +439,7 @@ def search_news(request,number,page):
     search_term = request.GET.get('search', '')
 
     # Query the News model with filters
-    news_query = News.objects.filter(label = 'real')
+    news_query = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
 
     if category:
         news_query = news_query.filter(category=category)
@@ -489,7 +489,7 @@ def search_news(request,number,page):
 @api_view(['GET'])
 def list_news_real_by_author(request, author_id, number, page):
     try:
-        news = News.objects.filter(account=author_id, label = 'real')
+        news = News.objects.filter(account=author_id, label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
         news_count = News.objects.filter(account=author_id, label = 'real').count()
         page_number = request.GET.get("page_number",page)
         # Create a Pa ginator object
@@ -539,7 +539,7 @@ def search_news_real_by_author(request,author_id,number,page):
     search_term = request.GET.get('search', '')
 
     # Query the News model with filters
-    news_query = News.objects.filter(account=author_id,label = 'real')
+    news_query = News.objects.filter(account=author_id,label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
 
     if category:
         news_query = news_query.filter(category=category)
@@ -591,7 +591,7 @@ def search_news_real_by_author(request,author_id,number,page):
 @permission_classes([IsAuthenticated])
 def list_news_fake_by_author(request,number,page):
     try:
-        news = News.objects.filter(account=request.user, label = 'fake')
+        news = News.objects.filter(account=request.user, label = 'fake').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
         news_count = News.objects.filter(account=request.user, label = 'fake').count()
         page_number = request.GET.get("page_number",page)
         # Create a Pa ginator object
@@ -643,7 +643,7 @@ def search_news_fake_by_author(request,number,page):
     search_term = request.GET.get('search', '')
 
     # Query the News model with filters
-    news_query = News.objects.filter(account=request.user,label = 'fake')
+    news_query = News.objects.filter(account=request.user,label = 'fake').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
 
     if category:
         news_query = news_query.filter(category=category)

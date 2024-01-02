@@ -1,5 +1,6 @@
 django==4.1.12
-mysqlclient==2.1.1
+mysqlclient==2.2.1 --global-option=build_ext --global-option="-I/Applications/XAMPP/xamppfiles/include/mysql/mysql" --global-option="-L/Applications/XAMPP/xamppfiles/lib/"
+pymysql==1.0.2
 django-urls
 djangorestframework
 djangorestframework-simplejwt
@@ -7,4 +8,4 @@ django-cors-headers
 factory_boy
 beautifulsoup4
 stopwords
-nltk
+faker
