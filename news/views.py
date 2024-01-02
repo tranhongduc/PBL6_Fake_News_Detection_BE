@@ -136,7 +136,8 @@ def comments_list_by_user(request, user_id):
                 'created_at' : item.created_at,
                 'news_id' : item.news.id,
                 'news' : item.news.title,
-                'author' : item.news.account.username
+                'author' : item.news.account.username,
+                'avatar' : item.news.account.avatar,
                 }
                 for item in comments
             ]
