@@ -68,7 +68,7 @@ def news_list_admin(request,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
 
@@ -108,7 +108,7 @@ def news_list_by_category_admin(request, category_id,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -148,7 +148,7 @@ def news_list_by_author_admin(request, author_id,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -188,7 +188,7 @@ def comments_list_by_user(request, user_id,number,page):
                 'news' : item.news.title,
                 'author' : item.news.account.username
                 }
-                for item in comments
+                for item in comments_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -472,7 +472,8 @@ def comments_list_by_news(request, news_id, page):
                         }
                         for sub_item_like in Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = sub_item.id)],
                     'total_like' : Interacts.objects.filter(label = 'comment',target_type = 'like',target_id = sub_item.id).count()    
-                } for sub_item in Comments.objects.filter(news=news_id, parent_comment_id = item.id).order_by('-created_at')]
+                } for sub_item in Comments.objects.filter(news=news_id, parent_comment_id = item.id).order_by('-created_at')],
+                'sub_comment_count' : Comments.objects.filter(news=news_id, parent_comment_id = item.id).order_by('-created_at').count()
             } 
             for item in comment_list
             ]

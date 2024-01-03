@@ -444,7 +444,7 @@ def user_account_list(request,number,page):
                 'news_count': News.objects.filter(account=user).count(),
                 'comments_count': Comments.objects.filter(account=user).count(),
             } 
-            for user in users]
+            for user in users_list]
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
