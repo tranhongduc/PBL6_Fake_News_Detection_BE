@@ -351,8 +351,6 @@ def categories_list(request):
         return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 #--------News----------   
 @api_view(['GET'])
-@authentication_classes([JWTAuthentication])
-@permission_classes([IsAuthenticated])
 def news_detail(request, news_id):
     try:
         news = News.objects.get(id = news_id)
@@ -433,8 +431,6 @@ def delete_news(request, news_id):
         return JsonResponse({"error": "You don't have permission to delete this news"}, status=status.HTTP_403_FORBIDDEN)
 #------Comments--------   
 @api_view(['GET'])
-@authentication_classes([JWTAuthentication])
-@permission_classes([IsAuthenticated])
 def comments_list_by_news(request, news_id, page):
     try:
         comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('-created_at')
