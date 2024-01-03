@@ -8,6 +8,7 @@ from PBL6_Fake_News_Detection_BE.settings import SECRET_KEY
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -69,7 +70,7 @@ def news_list_admin(request,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
 
@@ -109,7 +110,7 @@ def news_list_by_category_admin(request, category_id,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -149,7 +150,7 @@ def news_list_by_author_admin(request, author_id,number,page):
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at
                 }
-                for item in news
+                for item in news_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -190,7 +191,7 @@ def comments_list_by_user(request, user_id,number,page):
                 'author' : item.news.account.username,
                 'avatar' : item.news.account.avatar,
                 }
-                for item in comments
+                for item in comments_list
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
@@ -352,15 +353,22 @@ def categories_list(request):
 #--------News----------   
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def news_detail(request, news_id):
     try:
         news = News.objects.get(id = news_id)
 
-        save_me = Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = news_id).count()
-        save = Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = news_id)
-        like_me = Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = news_id).count()
-        like = Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = news_id)
+        if request.user.is_authenticated:
+            save_me = Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=news_id).count()
+            save = Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=news_id)
+            like_me = Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=news_id).count()
+            like = Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=news_id)
+        else:
+            # Set default values for unauthenticated users
+            save_me = 0
+            save = []
+            like_me = 0
+            like = []
         total_like = Interacts.objects.filter(label = 'news',target_type = 'like',target_id = news_id).count()
         total_save = Interacts.objects.filter(label = 'news',target_type = 'save',target_id = news_id).count()
         news_data = {
@@ -434,7 +442,7 @@ def delete_news(request, news_id):
 #------Comments--------   
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def comments_list_by_news(request, news_id, page):
     try:
         comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('-created_at')
@@ -449,36 +457,31 @@ def comments_list_by_news(request, news_id, page):
             return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
 
         response_data = {
-            'current_page' : comment_list.number,
-            'total_pages' : paginator.num_pages,
-            'comments' :[
-            {
-                'id': item.id,
-                'author':item.account.username,
-                'avatar':item.account.avatar,
-                'text': item.text,
-                'created_at' : item.created_at,
-                'like_me' : Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = item.id).count(),
-                'like' : [{
-                    'id': item_like.id,
-                    }
-                    for item_like in Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = item.id)],
-                'total_like' : Interacts.objects.filter(label = 'comment',target_type = 'like',target_id = item.id).count(),
-                'sub_comment' : [{
-                    'id' : sub_item.id,
-                    'author': sub_item.account.username,
-                    'avatar' : sub_item.account.avatar,
-                    'text' : sub_item.text,
-                    'created_at' : sub_item.created_at,
-                    'like_me' : Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = sub_item.id).count(),
-                    'like' : [{
-                        'id': sub_item_like.id,
-                        }
-                        for sub_item_like in Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = sub_item.id)],
-                    'total_like' : Interacts.objects.filter(label = 'comment',target_type = 'like',target_id = sub_item.id).count()    
-                } for sub_item in Comments.objects.filter(news=news_id, parent_comment_id = item.id).order_by('-created_at')]
-            } 
-            for item in comment_list
+            'current_page': comment_list.number,
+            'total_pages': paginator.num_pages,
+            'comments': [
+                {
+                    'id': item.id,
+                    'author': item.account.username,
+                    'avatar': item.account.avatar,
+                    'text': item.text,
+                    'created_at': item.created_at,
+                    'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=item.id).count(),
+                    'like': [] if not request.user.is_authenticated else [{'id': item_like.id} for item_like in Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=item.id)],
+                    'total_like': Interacts.objects.filter(label='comment', target_type='like', target_id=item.id).count(),
+                    'sub_comment': [{
+                        'id': sub_item.id,
+                        'author': sub_item.account.username,
+                        'avatar': sub_item.account.avatar,
+                        'text': sub_item.text,
+                        'created_at': sub_item.created_at,
+                        'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=sub_item.id).count(),
+                        'like': [] if not request.user.is_authenticated else [{'id': sub_item_like.id} for sub_item_like in Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=sub_item.id)],
+                        'total_like': Interacts.objects.filter(label='comment', target_type='like', target_id=sub_item.id).count()
+                    } for sub_item in Comments.objects.filter(news=news_id, parent_comment_id=item.id).order_by('-created_at')],
+                    'sub_comment_count': Comments.objects.filter(news=news_id, parent_comment_id=item.id).order_by('-created_at').count()
+                }
+                for item in comment_list
             ]
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
@@ -550,6 +553,8 @@ def delete_comment(request, comment_id):
 # ---------------------------------     USER  ROUTE     ---------------------------------
 #-------News------
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
 def news_list_user(request,number,page):
     try:
         news = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
@@ -568,30 +573,24 @@ def news_list_user(request,number,page):
         response_data = {
             'current_page': news_list.number,
             'total_pages': paginator.num_pages,
-            'news_count':news_count,
+            'news_count': news_count,
             'news': [
                 {
                     'id': item.id,
                     'image': item.image,
                     'title': item.title,
-                    'text' : item.text,
+                    'text': item.text,
                     'author': item.account.username,
                     'category': item.category.name,
                     'label': item.label,
                     'comments_count': Comments.objects.filter(news=item).count(),
                     'created_at': item.created_at,
-                    'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
-                    'like' : [{
-                        'id': item_like.id,
-                        }
-                        for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
-                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
-                    'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
-                    'save' : [{
-                        'id': item_save.id,
-                        }
-                        for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
-                    'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=item.id).count(),
+                    'like': [] if not request.user.is_authenticated else [{'id': item_like.id} for item_like in Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=item.id)],
+                    'total_like': Interacts.objects.filter(label='news', target_type='save', target_id=item.id).count(),
+                    'save_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=item.id).count(),
+                    'save': [] if not request.user.is_authenticated else [{'id': item_save.id} for item_save in Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=item.id)],
+                    'total_save': Interacts.objects.filter(label='news', target_type='save', target_id=item.id).count(),
                 }
                 for item in news_list
             ]
@@ -607,6 +606,8 @@ def news_list_user(request,number,page):
         return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([AllowAny])
 def search_news(request,number,page,data):
     # Get the category and search term from the request
     category = request.GET.get('category', '')
@@ -640,30 +641,24 @@ def search_news(request,number,page,data):
     response_data = {
         'current_page': news_list.number,
         'total_pages': paginator.num_pages,
-        'news_count':news_count,
+        'news_count': news_count,
         'news': [
             {
                 'id': item.id,
                 'image': item.image,
                 'title': item.title,
-                'text' : item.text,
+                'text': item.text,
                 'author': item.account.username,
                 'category': item.category.name,
                 'label': item.label,
                 'comments_count': Comments.objects.filter(news=item).count(),
                 'created_at': item.created_at,
-                'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
-                'like' : [{
-                    'id': item_like.id,
-                    }
-                    for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
-                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
-                'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
-                'save' : [{
-                    'id': item_save.id,
-                    }
-                    for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
-                'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=item.id).count(),
+                'like': [] if not request.user.is_authenticated else [{'id': item_like.id} for item_like in Interacts.objects.filter(label='news', target_type='like', account=request.user.id, target_id=item.id)],
+                'total_like': Interacts.objects.filter(label='news', target_type='save', target_id=item.id).count(),
+                'save_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=item.id).count(),
+                'save': [] if not request.user.is_authenticated else [{'id': item_save.id} for item_save in Interacts.objects.filter(label='news', target_type='save', account=request.user.id, target_id=item.id)],
+                'total_save': Interacts.objects.filter(label='news', target_type='save', target_id=item.id).count(),
             }
             for item in news_list
         ],
@@ -673,6 +668,8 @@ def search_news(request,number,page,data):
     return JsonResponse(response_data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def list_news_real_by_author(request, author_id, number, page):
     try:
         news = News.objects.filter(account=author_id, label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
@@ -731,6 +728,8 @@ def list_news_real_by_author(request, author_id, number, page):
         return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def search_news_real_by_author(request,author_id,number,page):
     # Get the category and search term from the request
     category = request.GET.get('category', '')
