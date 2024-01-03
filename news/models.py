@@ -15,8 +15,8 @@ class News(models.Model):
     label = models.CharField(max_length=10, null=True)
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     category = models.ForeignKey(Categories, on_delete=models.CASCADE)
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     use_in_migrations = True
 
 class Comments(models.Model):
@@ -24,6 +24,7 @@ class Comments(models.Model):
     text = models.TextField()
     account = models.ForeignKey(Account, on_delete=models.CASCADE)
     news = models.ForeignKey(News, on_delete=models.CASCADE)
+    parent_comment_id = models.IntegerField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     use_in_migrations = True

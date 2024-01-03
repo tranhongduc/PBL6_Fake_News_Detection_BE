@@ -26,6 +26,7 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 import numpy as np
 from auth_site.serializer import AccountSerializer
+from django.db import transaction
 from django.db.models import Count
 
 class CustomPagination(PageNumberPagination):
@@ -40,12 +41,24 @@ EMBEDDING_VECTOR_FEATURES=50
 # ---------------------------------     ADMIN  ROUTE     ---------------------------------
         
 @api_view(['GET'])
-def news_list_admin(request):
+def news_list_admin(request,number,page):
     try:
         # Get all news items
         news = News.objects.all()
         # Check for 'page_number' parameter in the request, default to 1 if not present
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -68,13 +81,25 @@ def news_list_admin(request):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-def news_list_by_category_admin(request, category_id):
+def news_list_by_category_admin(request, category_id,number,page):
     try:
         news = News.objects.filter(category=category_id)
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -95,13 +120,26 @@ def news_list_by_category_admin(request, category_id):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-def news_list_by_author_admin(request, author_id):
+def news_list_by_author_admin(request, author_id,number,page):
     try:
         news = News.objects.filter(account=author_id)
+         # Check for 'page_number' parameter in the request, default to 1 if not present
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
             'news': [
                 {
                     'id': item.id,
@@ -122,13 +160,26 @@ def news_list_by_author_admin(request, author_id):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-def comments_list_by_user(request, user_id):
+def comments_list_by_user(request, user_id,number,page):
     try:
         comments = Comments.objects.filter(account=user_id)
+        # Check for 'page_number' parameter in the request, default to 1 if not present
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(comments, number)
+        try:
+            comments_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            comments_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
         response_data = {
+            'current_page': comments_list.number,
+            'total_pages': paginator.num_pages,
             'comments': [
                 {
                 'id': item.id,
@@ -143,10 +194,14 @@ def comments_list_by_user(request, user_id):
             ]
         }
         return JsonResponse(response_data, status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        # Handle the case where no admin users are found
+        error_message = 'No item users found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])  
 def total_news(request, current_year):
@@ -293,12 +348,19 @@ def categories_list(request):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 #--------News----------   
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def news_detail(request, news_id):
     try:
         news = News.objects.get(id = news_id)
+
+        save_me = Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = news_id).count()
+        save = Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = news_id)
+        like_me = Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = news_id).count()
+        like = Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = news_id)
         total_like = Interacts.objects.filter(label = 'news',target_type = 'like',target_id = news_id).count()
         total_save = Interacts.objects.filter(label = 'news',target_type = 'save',target_id = news_id).count()
         news_data = {
@@ -310,6 +372,16 @@ def news_detail(request, news_id):
             'category' : news.category.name,
             'comments_count' : Comments.objects.filter(news = news).count(),
             'created_at' : news.created_at,
+            'save_me' : save_me,
+            'save' :  [{
+                'id': item.id,
+                }
+                for item in save],
+            'like_me' : like_me,
+            'like' :  [{
+                'id': item.id,
+                }
+                for item in like],
             'total_like' : total_like,
             'total_save' : total_save,
             'author_id' : news.account_id,
@@ -322,7 +394,7 @@ def news_detail(request, news_id):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['DELETE'])
 @authentication_classes([JWTAuthentication])
@@ -330,35 +402,43 @@ def news_detail(request, news_id):
 def delete_news(request, news_id):
     try:
         news = News.objects.get(id=news_id)
+        comments = Comments.objects.filter(news=news_id)
+        interacts_news = Interacts.objects.filter(label='news', target_id=news_id)
     except News.DoesNotExist:
         return JsonResponse({"error": "News not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.user.role == 'admin' or request.user.id == news.account.id:
-        news.delete()
+        try:
+            with transaction.atomic():
+                news.delete()
+
+                # Check if interacts_comment exists before deleting
+                if interacts_news.exists():
+                    interacts_news.delete()
+
+                # Check if sub_comments exist before deleting
+                for comment in comments:
+                    comment_id = comment.id
+                    interacts_comment = Interacts.objects.filter(label='comment', target_id=comment_id)
+                    if interacts_comment.exists():
+                        interacts_comment.delete()
+                    comment.delete()
+                        
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to delete comment and interactions. {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
         return JsonResponse({"message": "News deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     else:
         return JsonResponse({"error": "You don't have permission to delete this news"}, status=status.HTTP_403_FORBIDDEN)
 #------Comments--------   
 @api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def comments_list_by_news(request, news_id, page):
     try:
-        comments = Comments.objects.filter(news=news_id).order_by('-created_at')
-        
-       # Lấy danh sách account_id unique từ các comment
-        unique_account_ids = comments.values_list('account_id', flat=True).distinct()
-        
-        account_info_list = []
-        for account_id in unique_account_ids:
-            like_counts = get_like_counts(account_id)
-            comment_counts = get_comment_counts(account_id)
-            
-            # Thực hiện xử lý kết quả, ví dụ thêm vào account_info_list
-            account_info_list.append({
-                'account_id': account_id,
-                'like_counts': like_counts,
-                'comment_counts': comment_counts,
-            })
-            
+        comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('-created_at')
+
         page_number = request.GET.get("page_number",page)
         paginator = Paginator(comments, 25)
         try:
@@ -372,25 +452,44 @@ def comments_list_by_news(request, news_id, page):
             'current_page' : comment_list.number,
             'total_pages' : paginator.num_pages,
             'comments' :[
-                {
-                    'id': item.id,
-                    'author':item.account.username,
-                    'author_id':item.account.id,
-                    'avatar':item.account.avatar,
-                    'join_date':item.account.created_at,
-                    'text': item.text,
-                    'created_at' : item.created_at,
-                } 
-                for item in comment_list
-            ],
-            'account_info_list': account_info_list,
+            {
+                'id': item.id,
+                'author':item.account.username,
+                'avatar':item.account.avatar,
+                'text': item.text,
+                'created_at' : item.created_at,
+                'like_me' : Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                'like' : [{
+                    'id': item_like.id,
+                    }
+                    for item_like in Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = item.id)],
+                'total_like' : Interacts.objects.filter(label = 'comment',target_type = 'like',target_id = item.id).count(),
+                'sub_comment' : [{
+                    'id' : sub_item.id,
+                    'author': sub_item.account.username,
+                    'avatar' : sub_item.account.avatar,
+                    'text' : sub_item.text,
+                    'created_at' : sub_item.created_at,
+                    'like_me' : Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = sub_item.id).count(),
+                    'like' : [{
+                        'id': sub_item_like.id,
+                        }
+                        for sub_item_like in Interacts.objects.filter(label = 'comment',target_type = 'like',account = request.user.id,target_id = sub_item.id)],
+                    'total_like' : Interacts.objects.filter(label = 'comment',target_type = 'like',target_id = sub_item.id).count()    
+                } for sub_item in Comments.objects.filter(news=news_id, parent_comment_id = item.id).order_by('-created_at')]
+            } 
+            for item in comment_list
+            ]
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
-        error_message = 'News does not exist.'
+        # Handle the case where no admin users are found0
+        error_message = 'No comment users found.'
         return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        # Handle other unexpected errors
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 def get_like_counts(account_id):
     # Query để lấy tổng số lượng like bài viết của một người dùng
@@ -416,11 +515,35 @@ def get_comment_counts(account_id):
 def delete_comment(request, comment_id):
     try:
         comment = Comments.objects.get(id=comment_id)
-    except comment.DoesNotExist:
+        news = News.objects.get(id=comment.news.id)
+        sub_comments = Comments.objects.filter(parent_comment_id=comment_id)
+        interacts_comment = Interacts.objects.filter(label='comment', target_id=comment_id)
+    except Comments.DoesNotExist:
         return JsonResponse({"error": "comment not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.user.role == 'admin' or request.user.id == comment.account.id:
-        comment.delete()
+    if request.user.role == 'admin' or request.user.id == comment.account.id or request.user.id == news.account.id:
+        try:
+            with transaction.atomic():
+                comment.delete()
+
+                # Check if interacts_comment exists before deleting
+                if interacts_comment.exists():
+                    interacts_comment.delete()
+
+                # Check if sub_comments exist before deleting
+                if sub_comments.exists():
+                    for sub_comment in sub_comments:
+                        sub_comment_id = sub_comment.id
+                        interacts_sub_comment = Interacts.objects.filter(label='comment', target_id=sub_comment_id)
+
+                        # Check if interacts_sub_comment exists before deleting
+                        if interacts_sub_comment.exists():
+                            interacts_sub_comment.delete()
+
+                        sub_comment.delete()
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to delete comment and interactions. {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return JsonResponse({"message": "comment deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     else:
         return JsonResponse({"error": "You don't have permission to delete this comment"}, status=status.HTTP_403_FORBIDDEN)
@@ -455,9 +578,20 @@ def news_list_user(request,number,page):
                     'author': item.account.username,
                     'category': item.category.name,
                     'label': item.label,
-                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                     'comments_count': Comments.objects.filter(news=item).count(),
-                    'created_at': item.created_at
+                    'created_at': item.created_at,
+                    'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                    'like' : [{
+                        'id': item_like.id,
+                        }
+                        for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                    'save' : [{
+                        'id': item_save.id,
+                        }
+                        for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                    'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                 }
                 for item in news_list
             ]
@@ -470,16 +604,17 @@ def news_list_user(request,number,page):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
-def search_news(request,number,page):
+def search_news(request,number,page,data):
     # Get the category and search term from the request
     category = request.GET.get('category', '')
     search_term = request.GET.get('search', '')
 
     # Query the News model with filters
-    news_query = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
+    news_query = data
+    # news_query = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
 
     if category:
         news_query = news_query.filter(category=category)
@@ -515,9 +650,20 @@ def search_news(request,number,page):
                 'author': item.account.username,
                 'category': item.category.name,
                 'label': item.label,
-                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                 'comments_count': Comments.objects.filter(news=item).count(),
-                'created_at': item.created_at
+                'created_at': item.created_at,
+                'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                'like' : [{
+                    'id': item_like.id,
+                    }
+                    for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                'save' : [{
+                    'id': item_save.id,
+                    }
+                    for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
             }
             for item in news_list
         ],
@@ -557,7 +703,19 @@ def list_news_real_by_author(request, author_id, number, page):
                     'label': item.label,
                     'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                     'comments_count': Comments.objects.filter(news=item).count(),
-                    'created_at': item.created_at
+                    'created_at': item.created_at,
+                    'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                    'like' : [{
+                        'id': item_like.id,
+                        }
+                        for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                    'save' : [{
+                        'id': item_save.id,
+                        }
+                        for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                    'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                 }
                 for item in news_list
             ]
@@ -570,7 +728,7 @@ def list_news_real_by_author(request, author_id, number, page):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
 def search_news_real_by_author(request,author_id,number,page):
@@ -617,7 +775,19 @@ def search_news_real_by_author(request,author_id,number,page):
                 'label': item.label,
                 'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
                 'comments_count': Comments.objects.filter(news=item).count(),
-                'created_at': item.created_at
+                'created_at': item.created_at,
+                'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                'like' : [{
+                    'id': item_like.id,
+                    }
+                    for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                'save' : [{
+                    'id': item_save.id,
+                    }
+                    for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
             }
             for item in news_list
         ],
@@ -625,6 +795,128 @@ def search_news_real_by_author(request,author_id,number,page):
         'search_term': search_term,
     }
     return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def list_news_like_by_you(request,number,page):
+    try:
+        liked_target_ids = Interacts.objects.filter(
+                    label='news', target_type='like', account=request.user.id
+                ).values_list('target_id', flat=True)
+
+        # Filter News objects based on the liked_target_ids
+        news = News.objects.filter(id__in=liked_target_ids, label='real').order_by('-created_at') # Sắp xếp theo created_at giảm dần
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+        response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news': [
+                {
+                    'id': item.id,
+                    'title': item.title,
+                    'text': item.text,
+                    'image': item.image,
+                    'author': item.account.username,
+                    'category': item.category.name,
+                    'label': item.label,
+                    'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                    'like' : [{
+                        'id': item_like.id,
+                        }
+                        for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                    'save' : [{
+                        'id': item_save.id,
+                        }
+                        for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                    'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'comments_count': Comments.objects.filter(news=item).count(),
+                    'created_at': item.created_at
+                }
+                for item in news_list
+            ]
+        }
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        # Handle the case where no admin users are found
+        error_message = 'No news found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        # Handle other unexpected errors
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def list_news_save_by_you(request,number,page):
+    try:
+        liked_target_ids = Interacts.objects.filter(
+                    label='news', target_type='save', account=request.user.id
+                ).values_list('target_id', flat=True)
+
+        # Filter News objects based on the liked_target_ids
+        news = News.objects.filter(id__in=liked_target_ids, label='real').order_by('-created_at') # Sắp xếp theo created_at giảm dần
+        page_number = request.GET.get("page_number",page)
+        # Create a Pa ginator object
+        paginator = Paginator(news, number)
+        try:
+            news_list = paginator.page(page_number)
+        except PageNotAnInteger:
+            news_list = paginator.page(1)
+        except EmptyPage:
+            # Handle the case where the page is empty
+            return JsonResponse({'error': 'Empty page.'}, status=status.HTTP_204_NO_CONTENT)
+        response_data = {
+            'current_page': news_list.number,
+            'total_pages': paginator.num_pages,
+            'news': [
+                {
+                    'id': item.id,
+                    'title': item.title,
+                    'text': item.text,
+                    'image': item.image,
+                    'author': item.account.username,
+                    'category': item.category.name,
+                    'label': item.label,
+                    'like_me' : Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id).count(),
+                    'like' : [{
+                        'id': item_like.id,
+                        }
+                        for item_like in Interacts.objects.filter(label = 'news',target_type = 'like',account = request.user.id,target_id = item.id)],
+                    'total_like' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'save_me' : Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id).count(),
+                    'save' : [{
+                        'id': item_save.id,
+                        }
+                        for item_save in Interacts.objects.filter(label = 'news',target_type = 'save',account = request.user.id,target_id = item.id)],
+                    'total_save' : Interacts.objects.filter(label = 'news',target_type = 'save',target_id = item.id).count(),
+                    'comments_count': Comments.objects.filter(news=item).count(),
+                    'created_at': item.created_at
+                }
+                for item in news_list
+            ]
+        }
+        return JsonResponse(response_data, status=status.HTTP_200_OK)
+    except ObjectDoesNotExist as e:
+        # Handle the case where no admin users are found
+        error_message = 'No news found.'
+        return JsonResponse({'error': error_message}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        # Handle other unexpected errors
+        error_message = 'An error occurred while processing the request.'
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -672,7 +964,7 @@ def list_news_fake_by_author(request,number,page):
     except Exception as e:
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
-        return JsonResponse({'error': error_message}, status=status.HTTP_500_Internal_Server_Error)
+        return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -764,9 +1056,7 @@ def store_news(request):
 
         # Chuyển đối tượng Account thành JSON serializable
         # Lấy đối tượng Account từ ID
-        account_email = serializer.validated_data['account']
-        # print('Account Email:', account_email)
-        account = Account.objects.get(email=account_email)
+
         # print('Account:', account)
         # print('Account ID:', account.id)
 
@@ -778,7 +1068,7 @@ def store_news(request):
 
         # Gán giá trị cho trường label và trường account
         serializer.validated_data['label'] = label
-        serializer.validated_data['account'] = account.id
+        # serializer.validated_data['account'] = account.id
 
         serializer.save()
         
@@ -843,9 +1133,26 @@ def update_news(request, news_id):
 
     serializer = NewsSerializerUpdate(news, data=request.data)
 
+    rnn_model = load_model('./ai_model/trained_model/rnn_model.h5')
+    lstm_model = load_model('./ai_model/trained_model/lstm_model.h5')
+    bid_model = load_model('./ai_model/trained_model/bid_model.h5')
+
     if serializer.is_valid():
         serializer.save()
+        if 'text' in request.data or 'title' in request.data:
+            # Loại bỏ các cặp thẻ HTML từ giá trị của field 'text'
+            text_without_html = BeautifulSoup(serializer.validated_data['text'], 'html.parser').get_text(separator=' ')
 
+            # Nối chuỗi 'title' và 'text' đã loại bỏ các thẻ HTML
+            combined_text = f"{serializer.validated_data['title']} {text_without_html}"
+
+            # Chuẩn hóa văn bản
+            combined_text_stemming = perform_stemming(combined_text)
+
+            # Dự đoán xem bài viết có phải là thật hay giả
+            label = predict_fake_or_real(combined_text_stemming, lstm_model)
+            serializer.validated_data['label'] = label
+            serializer.save()
         changes_made = serializer.data != original_news_data
         if changes_made:
             return JsonResponse({"message": "News updated successfully"}, status=status.HTTP_200_OK)
