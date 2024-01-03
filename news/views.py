@@ -27,6 +27,7 @@ from nltk.stem import PorterStemmer
 import numpy as np
 from auth_site.serializer import AccountSerializer
 from django.db import transaction
+from django.db.models import Count
 
 class CustomPagination(PageNumberPagination):
     page_size = 10  # Đặt giá trị mặc định cho page_size
@@ -186,7 +187,8 @@ def comments_list_by_user(request, user_id,number,page):
                 'created_at' : item.created_at,
                 'news_id' : item.news.id,
                 'news' : item.news.title,
-                'author' : item.news.account.username
+                'author' : item.news.account.username,
+                'avatar' : item.news.account.avatar,
                 }
                 for item in comments_list
             ]
@@ -436,6 +438,7 @@ def delete_news(request, news_id):
 def comments_list_by_news(request, news_id, page):
     try:
         comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('-created_at')
+
         page_number = request.GET.get("page_number",page)
         paginator = Paginator(comments, 25)
         try:
@@ -444,6 +447,7 @@ def comments_list_by_news(request, news_id, page):
             comment_list = paginator.page(1)
         except EmptyPage:
             return JsonResponse({'error': 'Empty page'}, status = status.HTTP_204_NO_CONTENT)
+
         response_data = {
             'current_page' : comment_list.number,
             'total_pages' : paginator.num_pages,
@@ -487,6 +491,24 @@ def comments_list_by_news(request, news_id, page):
         # Handle other unexpected errors
         error_message = 'An error occurred while processing the request.'
         return JsonResponse({'error': error_message}, status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+def get_like_counts(account_id):
+    # Query để lấy tổng số lượng like bài viết của một người dùng
+    like_counts = Interacts.objects.filter(
+        account_id=account_id,
+        label='comment',
+        target_type='like'
+    ).aggregate(total_likes=Count('id'))
+
+    return like_counts['total_likes'] if like_counts else 0
+
+def get_comment_counts(account_id):
+    # Query để lấy tổng số lượng comment của một người dùng
+    comment_counts = Comments.objects.filter(
+        account_id=account_id
+    ).count()
+
+    return comment_counts
     
 @api_view(['DELETE'])
 @authentication_classes([JWTAuthentication])
@@ -1011,6 +1033,7 @@ def store_news(request):
     rnn_model = load_model('./ai_model/trained_model/rnn_model.h5')
     lstm_model = load_model('./ai_model/trained_model/lstm_model.h5')
     bid_model = load_model('./ai_model/trained_model/bid_model.h5')
+    my_model = load_model('./ai_model/trained_model/my_model.h5')
     
     serializer = NewsSerializer(data=data_copy)
 
@@ -1029,14 +1052,12 @@ def store_news(request):
         print('Combined text after stemming:', combined_text_stemming)
 
         # Dự đoán xem bài viết có phải là thật hay giả
-        label = predict_fake_or_real(combined_text_stemming, lstm_model)
+        label = predict_fake_or_real(combined_text_stemming, bid_model)
         print('Label:', label)
 
         # Chuyển đối tượng Account thành JSON serializable
         # Lấy đối tượng Account từ ID
-        # account_email = serializer.validated_data['account']
-        # print('Account Email:', account_email)
-        # account = Account.objects.get(email=account_email)
+
         # print('Account:', account)
         # print('Account ID:', account.id)
 
