@@ -608,14 +608,14 @@ def news_list_user(request,number,page):
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([AllowAny])
-def search_news(request,number,page,data):
+def search_news(request,number,page):
     # Get the category and search term from the request
     category = request.GET.get('category', '')
     search_term = request.GET.get('search', '')
 
     # Query the News model with filters
-    news_query = data
-    # news_query = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
+    # news_query = data
+    news_query = News.objects.filter(label = 'real').order_by('-created_at')  # Sắp xếp theo created_at giảm dần
 
     if category:
         news_query = news_query.filter(category=category)
