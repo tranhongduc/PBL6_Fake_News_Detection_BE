@@ -1045,13 +1045,19 @@ def search_news_fake_by_author(request,number,page):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def store_news(request):
-    data_copy = request.data.copy()
-    data_copy['account'] = request.user.id
+    data_copy = request.data.dict()
+    
+    # Gán giá trị cho trường "account" bằng ID của người dùng hiện tại
+    account_id = request.user.id
+    data_copy['account'] = account_id
+    print('Data copy:', data_copy)
 
     rnn_model = load_model('./ai_model/trained_model/rnn_model.h5')
     lstm_model = load_model('./ai_model/trained_model/lstm_model.h5')
     bid_model = load_model('./ai_model/trained_model/bid_model.h5')
     my_model = load_model('./ai_model/trained_model/my_model.h5')
+    my_model_trang = load_model('./ai_model/trained_model/my_model_trang.h5')
+    rnn_model_trang = load_model('./ai_model/trained_model/rnn_model_trang.h5')
     
     serializer = NewsSerializer(data=data_copy)
 
@@ -1072,27 +1078,28 @@ def store_news(request):
         # Dự đoán xem bài viết có phải là thật hay giả
         label = predict_fake_or_real(combined_text_stemming, bid_model)
         print('Label:', label)
-
-        # Chuyển đối tượng Account thành JSON serializable
-        # Lấy đối tượng Account từ ID
-
-        # print('Account:', account)
-        # print('Account ID:', account.id)
-
-        # account_serializer = AccountSerializer(account)
-        # account_data = account_serializer.data
-
-        # Lấy giá trị ID của tài khoản
-        # account_id = account.id
+        
+        # Chuyển đổi giá trị của account thành một giá trị có thể được JSON serializable
+        print('Serializer: ', serializer)
 
         # Gán giá trị cho trường label và trường account
         serializer.validated_data['label'] = label
-        # serializer.validated_data['account'] = account.id
+        
+        # Tạo một đối tượng News với account_id thay vì đối tượng Account
+        news_instance = News(account_id=account_id, **serializer.validated_data)
 
-        serializer.save()
+        news_instance.save()
+        
+        # Trả về một JSON chỉ chứa những thông tin cần thiết
+        response_data = {
+            "message": "News created successfully",
+            "title": serializer.validated_data['title'],
+            "label": label,
+            # Thêm các trường khác nếu cần
+        }
         
         return JsonResponse({"message": "News created successfully",
-                             "data": serializer.validated_data}, status=status.HTTP_201_CREATED)
+                             "data": response_data}, status=status.HTTP_201_CREATED)
     return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 def perform_stemming(text):

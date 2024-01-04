@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Categories, News, Comments, Interacts
-        
+from auth_site import models
 class CategoriesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categories
