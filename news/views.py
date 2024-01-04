@@ -443,12 +443,27 @@ def delete_news(request, news_id):
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([AllowAny])
-def comments_list_by_news(request, news_id, page):
+def comments_list_by_news(request, news_id, page, page_size):
     try:
-        comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('-created_at')
+        comments = Comments.objects.filter(news=news_id, parent_comment_id = None).order_by('created_at')
 
+        # Lấy danh sách account_id unique từ các comment
+        unique_account_ids = comments.values_list('account_id', flat=True).distinct()
+
+        account_info_list = []
+        for account_id in unique_account_ids:
+            like_counts = get_like_counts(account_id)
+            comment_counts = get_comment_counts(account_id)
+
+            # Thực hiện xử lý kết quả, ví dụ thêm vào account_info_list
+            account_info_list.append({
+                'account_id': account_id,
+                'like_counts': like_counts,
+                'comment_counts': comment_counts,
+            })
+            
         page_number = request.GET.get("page_number",page)
-        paginator = Paginator(comments, 25)
+        paginator = Paginator(comments, page_size)
         try:
             comment_list = paginator.page(page_number)
         except PageNotAnInteger:
@@ -463,8 +478,10 @@ def comments_list_by_news(request, news_id, page):
                 {
                     'id': item.id,
                     'author': item.account.username,
+                    'author_id': item.account.id,
                     'avatar': item.account.avatar,
                     'text': item.text,
+                    'join_date': item.account.created_at,
                     'created_at': item.created_at,
                     'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=item.id).count(),
                     'like': [] if not request.user.is_authenticated else [{'id': item_like.id} for item_like in Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=item.id)],
@@ -472,8 +489,10 @@ def comments_list_by_news(request, news_id, page):
                     'sub_comment': [{
                         'id': sub_item.id,
                         'author': sub_item.account.username,
+                        'author_id': sub_item.account.id,
                         'avatar': sub_item.account.avatar,
                         'text': sub_item.text,
+                        'join_date': sub_item.account.created_at,
                         'created_at': sub_item.created_at,
                         'like_me': 0 if not request.user.is_authenticated else Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=sub_item.id).count(),
                         'like': [] if not request.user.is_authenticated else [{'id': sub_item_like.id} for sub_item_like in Interacts.objects.filter(label='comment', target_type='like', account=request.user.id, target_id=sub_item.id)],
@@ -482,7 +501,8 @@ def comments_list_by_news(request, news_id, page):
                     'sub_comment_count': Comments.objects.filter(news=news_id, parent_comment_id=item.id).order_by('-created_at').count()
                 }
                 for item in comment_list
-            ]
+            ],
+            'account_info_list': account_info_list,
         }
         return JsonResponse(response_data,status=status.HTTP_200_OK)
     except ObjectDoesNotExist as e:
